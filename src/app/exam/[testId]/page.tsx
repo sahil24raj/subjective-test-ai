@@ -33,12 +33,13 @@ export default function ExamHall() {
 
   // If no active test is found in context, redirect back to generator
   useEffect(() => {
+    if (isSubmitting) return;
     if (!activeTest || activeTest.id !== testId) {
       router.push('/generator');
       return;
     }
     setTimeLeft(activeTest.durationMinutes * 60);
-  }, [activeTest, testId, router]);
+  }, [activeTest, testId, router, isSubmitting]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -55,6 +56,38 @@ export default function ExamHall() {
     }, 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
+
+  if (isSubmitting) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#050816]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 scanlines">
+        <div className="w-full max-w-md p-6 rounded-3xl border border-cyber-blue/30 bg-[#060a22]/70 shadow-[0_0_40px_rgba(0,240,255,0.2)] flex flex-col space-y-6">
+          <div className="flex items-center justify-between border-b border-cyber-blue/20 pb-3">
+            <span className="font-mono text-xs text-cyber-blue flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-cyber-blue animate-pulse" /> EXAM EVALUATOR mainframe
+            </span>
+            <span className="font-mono text-[10px] text-slate-500 font-black">ACTIVE EVALUATION</span>
+          </div>
+
+          <div className="relative h-20 w-20 mx-auto bg-cyber-pink/5 rounded-full border border-cyber-pink/20 flex items-center justify-center animate-pulse">
+            <ShieldAlert className="w-10 h-10 text-cyber-pink animate-ping" />
+          </div>
+
+          <div className="space-y-2 text-center">
+            <div className="font-orbitron text-xs text-slate-400 uppercase tracking-widest">
+              AI Grading Protocol
+            </div>
+            <div className="font-mono text-sm text-cyber-pink h-12 flex items-center justify-center px-4">
+              Scanning answer transcripts for keyword accuracy and explanations quality...
+            </div>
+          </div>
+
+          <div className="w-full h-1 bg-[#02040c] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-cyber-pink via-cyber-purple to-cyber-blue animate-pulse" style={{ width: '100%' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!activeTest) return null;
 
@@ -92,10 +125,10 @@ export default function ExamHall() {
       );
       
       // Submit in global state (this clears active test, returns result payload)
-      submitActiveTest(activeTestAnswers, evaluationResults);
+      const result = submitActiveTest(activeTestAnswers, evaluationResults);
       
       // Redirect to results
-      router.push(`/results/${activeTest.id}`);
+      router.push(`/results/${result.id}`);
     } catch (e) {
       console.error('Submission failed', e);
       setIsSubmitting(false);
@@ -129,36 +162,7 @@ export default function ExamHall() {
   return (
     <div className={mainStyleClass}>
       
-      {/* AI Evaluation Scanner overlay */}
-      {isSubmitting && (
-        <div className="fixed inset-0 z-50 bg-[#050816]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 scanlines">
-          <div className="w-full max-w-md p-6 rounded-3xl border border-cyber-blue/30 bg-[#060a22]/70 shadow-[0_0_40px_rgba(0,240,255,0.2)] flex flex-col space-y-6">
-            <div className="flex items-center justify-between border-b border-cyber-blue/20 pb-3">
-              <span className="font-mono text-xs text-cyber-blue flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-cyber-blue animate-pulse" /> EXAM EVALUATOR mainframe
-              </span>
-              <span className="font-mono text-[10px] text-slate-500 font-black">ACTIVE EVALUATION</span>
-            </div>
 
-            <div className="relative h-20 w-20 mx-auto bg-cyber-pink/5 rounded-full border border-cyber-pink/20 flex items-center justify-center animate-pulse">
-              <ShieldAlert className="w-10 h-10 text-cyber-pink animate-ping" />
-            </div>
-
-            <div className="space-y-2 text-center">
-              <div className="font-orbitron text-xs text-slate-400 uppercase tracking-widest">
-                AI Grading Protocol
-              </div>
-              <div className="font-mono text-sm text-cyber-pink h-12 flex items-center justify-center px-4">
-                Scanning answer transcripts for keyword accuracy and explanations quality...
-              </div>
-            </div>
-
-            <div className="w-full h-1 bg-[#02040c] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-cyber-pink via-cyber-purple to-cyber-blue animate-pulse" style={{ width: '100%' }} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header Info row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyan-500/10 pb-4">
