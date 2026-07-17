@@ -23,7 +23,7 @@ export const AIHelper = {
     examMode: string,
     syllabusFileName?: string
   ): Promise<Question[]> => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
     if (apiKey) {
       try {
@@ -37,28 +37,32 @@ export const AIHelper = {
           Exam Mode Context: ${examMode}
           ${syllabusFileName ? `Based on the uploaded syllabus file: ${syllabusFileName}` : ''}
 
-          Return a JSON array of questions matching this schema exactly:
-          [{
-            "id": "q_" + unique index,
-            "text": "The subjective question text",
-            "marks": 2 or 5 or 10 depending on the type,
-            "type": "very-short" | "short" | "long",
-            "expectedKeywords": ["keyword1", "keyword2", "keyword3"],
-            "expectedAnswer": "A comprehensive guideline answer containing the keywords that a examiner expects",
-            "topperAnswer": "A high-scoring, perfectly structured academic answer that would fetch full marks"
-          }]
-
-          Return only the JSON array. Do not include markdown code block formatting or backticks.
+          Return a JSON object containing a "questions" key with an array of questions matching this schema:
+          {
+            "questions": [{
+              "id": "q_" + unique index,
+              "text": "The subjective question text",
+              "marks": 2 or 5 or 10 depending on the type,
+              "type": "very-short" | "short" | "long",
+              "expectedKeywords": ["keyword1", "keyword2", "keyword3"],
+              "expectedAnswer": "A comprehensive guideline answer containing the keywords that a examiner expects",
+              "topperAnswer": "A high-scoring, perfectly structured academic answer that would fetch full marks"
+            }]
+          }
         `;
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          'https://api.groq.com/openai/v1/chat/completions',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json' }
+              model: 'llama-3.3-70b-versatile',
+              messages: [{ role: 'user', content: prompt }],
+              response_format: { type: 'json_object' }
             })
           }
         );
@@ -66,17 +70,18 @@ export const AIHelper = {
         const data = await response.json();
         
         if (data.error) {
-          throw new Error(data.error.message || 'Gemini API returned an error');
+          throw new Error(data.error.message || 'Groq API returned an error');
         }
 
-        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const textResponse = data.choices?.[0]?.message?.content;
         if (textResponse) {
           const parsed = JSON.parse(textResponse);
+          if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
           if (Array.isArray(parsed)) return parsed;
         }
-        throw new Error('Gemini API did not return candidates text');
+        throw new Error('Groq API did not return a valid list of questions');
       } catch (error) {
-        console.error('Failed to generate using Gemini API, falling back to simulator', error);
+        console.error('Failed to generate using Groq API, falling back to simulator', error);
       }
     }
 
@@ -175,7 +180,7 @@ export const AIHelper = {
     questions: Question[],
     answers: Record<string, string>
   ): Promise<QuestionEvaluation[]> => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
     if (apiKey) {
       try {
@@ -199,28 +204,32 @@ export const AIHelper = {
           For short (5 marks), grade out of 5.
           For long (10 marks), grade out of 10.
 
-          Return a JSON array of evaluations matching this schema exactly:
-          [{
-            "questionId": "string matching the question's id",
-            "score": number (marks awarded),
-            "maxScore": number (max marks),
-            "expectedAnswer": "the expected answer from the database",
-            "topperAnswer": "the topper answer from the database",
-            "missingPoints": ["missing concept/keyword 1", "missing concept/keyword 2"],
-            "feedback": "constructive feedback and suggestions for improvement"
-          }]
-
-          Return only the JSON array. Do not include markdown code block formatting or backticks.
+          Return a JSON object containing an "evaluations" key with an array of evaluations matching this schema:
+          {
+            "evaluations": [{
+              "questionId": "string matching the question's id",
+              "score": number (marks awarded),
+              "maxScore": number (max marks),
+              "expectedAnswer": "the expected answer from the database",
+              "topperAnswer": "the topper answer from the database",
+              "missingPoints": ["missing concept/keyword 1", "missing concept/keyword 2"],
+              "feedback": "constructive feedback and suggestions for improvement"
+            }]
+          }
         `;
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          'https://api.groq.com/openai/v1/chat/completions',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json' }
+              model: 'llama-3.3-70b-versatile',
+              messages: [{ role: 'user', content: prompt }],
+              response_format: { type: 'json_object' }
             })
           }
         );
@@ -228,17 +237,18 @@ export const AIHelper = {
         const data = await response.json();
         
         if (data.error) {
-          throw new Error(data.error.message || 'Gemini API returned an error');
+          throw new Error(data.error.message || 'Groq API returned an error');
         }
 
-        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const textResponse = data.choices?.[0]?.message?.content;
         if (textResponse) {
           const parsed = JSON.parse(textResponse);
+          if (parsed && Array.isArray(parsed.evaluations)) return parsed.evaluations;
           if (Array.isArray(parsed)) return parsed;
         }
-        throw new Error('Gemini API did not return candidates text');
+        throw new Error('Groq API did not return a valid list of evaluations');
       } catch (error) {
-        console.error('Failed to evaluate using Gemini API, falling back to simulator', error);
+        console.error('Failed to evaluate using Groq API, falling back to simulator', error);
       }
     }
 
