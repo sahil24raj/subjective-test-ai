@@ -25,7 +25,7 @@ export interface Test {
   subjectId: string;
   title: string;
   mode: 'Unit Test' | 'Mid Semester' | 'End Semester' | 'Viva Practice';
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Mixed';
   durationMinutes: number;
   questions: Question[];
   xpReward: number;
