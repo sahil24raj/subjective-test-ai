@@ -14,7 +14,7 @@ export interface Question {
   id: string;
   text: string;
   marks: number;
-  type: 'very-short' | 'short' | 'long';
+  type: 'very-short' | 'short' | 'long' | 'very-long';
   expectedKeywords: string[];
   expectedAnswer: string;
   topperAnswer: string;

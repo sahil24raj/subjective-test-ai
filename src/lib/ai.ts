@@ -17,11 +17,14 @@ export const AIHelper = {
   generateQuestions: async (
     subjectId: string,
     topic: string,
-    count: number,
-    type: 'very-short' | 'short' | 'long' | 'mixed',
-    difficulty: 'Easy' | 'Medium' | 'Hard',
+    count: number | 'random',
+    type: 'very-short' | 'short' | 'long' | 'very-long' | 'mixed',
+    difficulty: 'Easy' | 'Medium' | 'Hard' | 'Mixed',
     examMode: string,
-    syllabusFileName?: string
+    syllabusFileName?: string,
+    collegeName?: string,
+    course?: string,
+    subject?: string
   ): Promise<Question[]> => {
     const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
@@ -30,9 +33,12 @@ export const AIHelper = {
         const prompt = `
           You are a professional university professor setting a question paper.
           Create an exam test paper.
-          Subject/Topic: ${topic || subjectId}
-          Question Count: ${count}
-          Question Type: ${type} (very-short is 2 marks each, short is 5 marks each, long is 10 marks each)
+          ${collegeName ? `College/University: ${collegeName}` : ''}
+          ${course ? `Course/Degree: ${course}` : ''}
+          ${subject ? `Subject: ${subject}` : ''}
+          Topic: ${topic || subjectId}
+          Question Count: ${count === 'random' ? 'A random number of questions between 3 and 7' : count}
+          Question Type: ${type} (very-short is 2 marks, short is 5 marks, long is 10 marks, very-long is 20 marks, mixed is a combination of these)
           Difficulty: ${difficulty}
           Exam Mode Context: ${examMode}
           ${syllabusFileName ? `Based on the uploaded syllabus file: ${syllabusFileName}` : ''}
@@ -42,10 +48,10 @@ export const AIHelper = {
             "questions": [{
               "id": "q_" + unique index,
               "text": "The subjective question text",
-              "marks": 2 or 5 or 10 depending on the type,
-              "type": "very-short" | "short" | "long",
+              "marks": 2, 5, 10 or 20 depending on the type,
+              "type": "very-short" | "short" | "long" | "very-long",
               "expectedKeywords": ["keyword1", "keyword2", "keyword3"],
-              "expectedAnswer": "A comprehensive guideline answer containing the keywords that a examiner expects",
+              "expectedAnswer": "A comprehensive guideline answer containing the keywords that an examiner expects",
               "topperAnswer": "A high-scoring, perfectly structured academic answer that would fetch full marks"
             }]
           }
@@ -88,9 +94,12 @@ export const AIHelper = {
     // FALLBACK SIMULATOR (No API Key or error occurred)
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI delay
     
+    // Resolve random question count
+    const actualCount = count === 'random' ? Math.floor(Math.random() * 5) + 3 : count;
+
     // Pick questions from mock database based on subject if known, else generate dynamically
     let selected: Question[] = [];
-    const cleanTopic = (topic || '').trim();
+    const cleanTopic = (topic || subject || '').trim();
     const cleanTopicLower = cleanTopic.toLowerCase();
 
     if (cleanTopicLower.includes('operating system') || cleanTopicLower.includes('deadlock') || cleanTopicLower.includes('thrashing') || cleanTopicLower === 'os') {
@@ -107,19 +116,24 @@ export const AIHelper = {
       const primaryWord = words[0] || 'concept';
       const secondaryWord = words[1] || 'framework';
       
-      for (let i = 0; i < count; i++) {
-        let qType: 'very-short' | 'short' | 'long' = 'short';
-        let qMarks = 5;
-        if (type === 'very-short' || (type === 'mixed' && i === 0)) {
-          qType = 'very-short';
-          qMarks = 2;
-        } else if (type === 'long' || (type === 'mixed' && i === count - 1)) {
-          qType = 'long';
-          qMarks = 10;
+      for (let i = 0; i < actualCount; i++) {
+        let qType: 'very-short' | 'short' | 'long' | 'very-long' = 'short';
+        
+        if (type === 'mixed') {
+          const typeChoices: ('very-short' | 'short' | 'long' | 'very-long')[] = ['very-short', 'short', 'long', 'very-long'];
+          qType = typeChoices[i % typeChoices.length];
+        } else {
+          qType = type;
         }
 
+        let qMarks = 5;
+        if (qType === 'very-short') qMarks = 2;
+        else if (qType === 'short') qMarks = 5;
+        else if (qType === 'long') qMarks = 10;
+        else if (qType === 'very-long') qMarks = 20;
+
         let text = '';
-        let expectedKeywords: string[] = [primaryWord.toLowerCase(), 'optimization', 'process', 'efficiency'];
+        const expectedKeywords: string[] = [primaryWord.toLowerCase(), 'optimization', 'process', 'efficiency'];
         if (secondaryWord) expectedKeywords.push(secondaryWord.toLowerCase());
 
         if (qType === 'very-short') {
@@ -128,9 +142,12 @@ export const AIHelper = {
         } else if (qType === 'short') {
           text = `Explain the architectural design and working mechanism of ${cleanTopic}. Provide a brief example.`;
           expectedKeywords.push('working', 'implementation', 'example');
-        } else {
+        } else if (qType === 'long') {
           text = `Detailed analysis of ${cleanTopic}: Discuss the underlying principles, key challenges, and optimization strategies to achieve maximum efficiency.`;
           expectedKeywords.push('principles', 'analysis', 'challenges', 'strategies');
+        } else {
+          text = `Exhaustive analysis and mathematical/logical formulations of ${cleanTopic}: Discuss the architectural framework, trade-offs, security implications, and design patterns, providing a complete end-to-end case study.`;
+          expectedKeywords.push('architectural framework', 'trade-offs', 'security', 'patterns', 'case study');
         }
 
         selected.push({
@@ -149,7 +166,7 @@ export const AIHelper = {
     let resultQuestions = [...selected];
     
     // If we need more than available, duplicate with new ids
-    while (resultQuestions.length < count) {
+    while (resultQuestions.length < actualCount) {
       resultQuestions = [...resultQuestions, ...selected.map((q, idx) => ({
         ...q,
         id: `${q.id}_dup_${idx}_${Math.random().toString(36).substr(2, 4)}`,
@@ -158,14 +175,21 @@ export const AIHelper = {
     }
     
     // Slice and adjust marks
-    return resultQuestions.slice(0, count).map(q => {
+    return resultQuestions.slice(0, actualCount).map((q, i) => {
       let qType = q.type;
       let qMarks = q.marks;
       
       if (type !== 'mixed') {
-        qType = type === 'very-short' ? 'very-short' : type === 'short' ? 'short' : 'long';
-        qMarks = qType === 'very-short' ? 2 : qType === 'short' ? 5 : 10;
+        qType = type;
+      } else {
+        const typeChoices: ('very-short' | 'short' | 'long' | 'very-long')[] = ['very-short', 'short', 'long', 'very-long'];
+        qType = typeChoices[i % typeChoices.length];
       }
+
+      if (qType === 'very-short') qMarks = 2;
+      else if (qType === 'short') qMarks = 5;
+      else if (qType === 'long') qMarks = 10;
+      else if (qType === 'very-long') qMarks = 20;
       
       return {
         ...q,
