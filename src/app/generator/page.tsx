@@ -14,9 +14,6 @@ function GeneratorForm() {
   // URL query pre-population
   const queryTopic = searchParams.get('topic') || '';
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'manual' | 'scan'>('manual');
-
   // Form states
   const [collegeName, setCollegeName] = useState('');
   const [course, setCourse] = useState('');
@@ -27,12 +24,6 @@ function GeneratorForm() {
   const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Mixed'>('Medium');
   const [examMode, setExamMode] = useState<'Unit Test' | 'Mid Semester' | 'End Semester' | 'Viva Practice'>('Unit Test');
 
-  // Syllabus scan states
-  const [scannedFile, setScannedFile] = useState<File | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanSuccess, setScanSuccess] = useState(false);
-  
   // AI Generation animation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
@@ -51,57 +42,8 @@ function GeneratorForm() {
     if (queryTopic) setTopic(queryTopic);
   }, [queryTopic]);
 
-  const handleFileScan = (file: File) => {
-    setScannedFile(file);
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanSuccess(false);
-    
-    // Animate scan progress
-    const interval = setInterval(() => {
-      setScanProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-          setScanSuccess(true);
-          
-          // Extracted info simulation based on file name keywords
-          const fname = file.name.toLowerCase();
-          if (fname.includes('dbms') || fname.includes('database') || fname.includes('sql')) {
-            setCollegeName('Indian Institute of Technology (IIT)');
-            setCourse('B.Tech Computer Science');
-            setSubject('Database Management Systems');
-            setTopic('Relational Algebra, SQL Queries, and Normalization');
-          } else if (fname.includes('os') || fname.includes('operating')) {
-            setCollegeName('Delhi Technological University (DTU)');
-            setCourse('B.Tech Software Engineering');
-            setSubject('Operating Systems');
-            setTopic('Process Synchronization, Deadlocks, and Paging');
-          } else if (fname.includes('dsa') || fname.includes('data structure') || fname.includes('algorithm')) {
-            setCollegeName('BITS Pilani');
-            setCourse('M.Tech Computer Science');
-            setSubject('Data Structures & Algorithms');
-            setTopic('Binary Trees, Graph Algorithms (BFS/DFS), and Dynamic Programming');
-          } else {
-            setCollegeName('Stanford University');
-            setCourse('Master of Science in CS');
-            setSubject('Artificial Intelligence');
-            setTopic('Heuristic Search, Neural Networks, and NLP Concepts');
-          }
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
-  };
-
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (activeTab === 'scan' && !scanSuccess) {
-      alert('Please upload and scan a syllabus file first.');
-      return;
-    }
 
     if (!topic.trim()) {
       alert('Please enter a subject or topic name.');
@@ -131,7 +73,7 @@ function GeneratorForm() {
         questionType,
         difficulty,
         examMode,
-        scannedFile?.name || undefined,
+        undefined,
         collegeName || undefined,
         course || undefined,
         subject || undefined
@@ -192,46 +134,6 @@ function GeneratorForm() {
         </div>
       </div>
 
-      {/* Mode Switcher Tabs */}
-      <div className="flex border-b border-slate-800 bg-slate-950/20 rounded-xl overflow-hidden p-1">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('manual');
-            setCollegeName('');
-            setCourse('');
-            setSubject('');
-            setTopic('');
-            setScannedFile(null);
-            setScanSuccess(false);
-          }}
-          className={`flex-1 py-3 text-center font-orbitron font-extrabold text-xs tracking-widest uppercase transition-all rounded-lg cursor-pointer ${
-            activeTab === 'manual'
-              ? 'bg-cyber-blue/10 text-cyber-blue border border-cyber-blue/20 shadow-[0_0_10px_rgba(0,240,255,0.15)]'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          Manual Test Builder
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('scan');
-            setCollegeName('');
-            setCourse('');
-            setSubject('');
-            setTopic('');
-          }}
-          className={`flex-1 py-3 text-center font-orbitron font-extrabold text-xs tracking-widest uppercase transition-all rounded-lg cursor-pointer ${
-            activeTab === 'scan'
-              ? 'bg-cyber-blue/10 text-cyber-blue border border-cyber-blue/20 shadow-[0_0_10px_rgba(0,240,255,0.15)]'
-              : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          AI Syllabus Scan
-        </button>
-      </div>
-
       {/* Generation Scan Overlay Screen */}
       {isGenerating && (
         <div className="fixed inset-0 z-50 bg-[#050816]/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 scanlines">
@@ -278,142 +180,72 @@ function GeneratorForm() {
             <Settings2 className="w-4 h-4 text-cyber-blue" /> Config Exam Engine
           </h2>
 
-          {/* Mode 2: File Upload Section */}
-          {activeTab === 'scan' && (
-            <div className="flex flex-col space-y-2">
-              <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Upload Syllabus Image or PDF
-              </label>
-              
-              <div 
-                className={`border border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                  scanSuccess 
-                    ? 'border-cyber-teal bg-cyber-teal/5' 
-                    : 'border-slate-800 hover:border-cyber-blue/50 bg-slate-950/40'
-                }`}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleFileScan(e.dataTransfer.files[0]);
-                  }
-                }}
-                onClick={() => document.getElementById('syllabus-file')?.click()}
-              >
-                <input 
-                  type="file"
-                  id="syllabus-file"
-                  className="hidden"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileScan(e.target.files[0]);
-                    }
-                  }}
+          {/* College details & inputs */}
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              {/* College Name */}
+              <div className="flex flex-col space-y-1.5">
+                <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  College Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={collegeName}
+                  onChange={(e) => setCollegeName(e.target.value)}
+                  placeholder="e.g. IIT Delhi"
+                  className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
-                
-                {isScanning ? (
-                  <div className="flex flex-col items-center space-y-3">
-                    <RefreshCw className="w-7 h-7 text-cyber-blue animate-spin" />
-                    <span className="font-mono text-xs text-cyber-blue animate-pulse uppercase tracking-wider">
-                      Extracting Syllabus data... {scanProgress}%
-                    </span>
-                  </div>
-                ) : scanSuccess ? (
-                  <div className="flex flex-col items-center space-y-2">
-                    <div className="w-9 h-9 rounded-full bg-cyber-teal/10 border border-cyber-teal/20 flex items-center justify-center">
-                      <CheckCircle2 className="w-5 h-5 text-cyber-teal" />
-                    </div>
-                    <span className="font-mono text-xs text-cyber-teal uppercase tracking-widest font-black">
-                      AI Extraction Successful
-                    </span>
-                    <span className="font-mono text-[10px] text-slate-400">
-                      {scannedFile?.name}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center space-y-3">
-                    <Upload className="w-7 h-7 text-slate-500 hover:text-cyber-blue transition-colors" />
-                    <span className="font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
-                      Drag & Drop Syllabus File here or click to Browse
-                    </span>
-                    <span className="font-rajdhani text-[10px] text-slate-600">
-                      Supports PDF, PNG, JPG (Max 10MB)
-                    </span>
-                  </div>
-                )}
+              </div>
+
+              {/* Course Name */}
+              <div className="flex flex-col space-y-1.5">
+                <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Course / Degree
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={course}
+                  onChange={(e) => setCourse(e.target.value)}
+                  placeholder="e.g. B.Tech CSE"
+                  className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
+                />
               </div>
             </div>
-          )}
 
-          {/* College details & syllabus inputs */}
-          {(activeTab === 'manual' || scanSuccess) && (
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4">
-                {/* College Name */}
-                <div className="flex flex-col space-y-1.5">
-                  <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    College Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={collegeName}
-                    onChange={(e) => setCollegeName(e.target.value)}
-                    placeholder="e.g. IIT Delhi"
-                    className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
-                  />
-                </div>
-
-                {/* Course Name */}
-                <div className="flex flex-col space-y-1.5">
-                  <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Course / Degree
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={course}
-                    onChange={(e) => setCourse(e.target.value)}
-                    placeholder="e.g. B.Tech CSE"
-                    className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Subject Name */}
+              <div className="flex flex-col space-y-1.5">
+                <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Subject Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g. Operating Systems"
+                  className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Subject Name */}
-                <div className="flex flex-col space-y-1.5">
-                  <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Subject Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="e.g. Operating Systems"
-                    className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
-                  />
-                </div>
-
-                {/* Topic Name */}
-                <div className="flex flex-col space-y-1.5">
-                  <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Specific Topic / Chapter
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g. CPU Scheduling"
-                    className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
-                  />
-                </div>
+              {/* Topic Name */}
+              <div className="flex flex-col space-y-1.5">
+                <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Specific Topic / Chapter
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g. CPU Scheduling"
+                  className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
+                />
               </div>
             </div>
-          )}
+          </div>
 
           {/* Settings parameters Grid */}
           <div className="grid grid-cols-2 gap-4 border-t border-slate-850 pt-4">

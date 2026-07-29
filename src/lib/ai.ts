@@ -12,6 +12,68 @@ export interface QuestionEvaluation {
 }
 
 // Global interface for AI helper
+// Clean JSON helper in case of markdown wrapping
+function cleanJsonString(str: string): string {
+  let cleaned = str.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+  }
+  return cleaned;
+}
+
+// Unified LLM Caller helper
+async function callLLM(prompt: string, jsonMode: boolean = true): Promise<string> {
+  const groqKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+  const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+
+  if (groqKey) {
+    const response = await fetch(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          ...(jsonMode ? { response_format: { type: 'json_object' } } : {})
+        })
+      }
+    );
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error.message || 'Groq API returned an error');
+    }
+    return data.choices?.[0]?.message?.content || '';
+  } else if (geminiKey) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          ...(jsonMode ? { generationConfig: { responseMimeType: 'application/json' } } : {})
+        })
+      }
+    );
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error.message || 'Gemini API returned an error');
+    }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } else {
+    throw new Error('No AI API Key configured');
+  }
+}
+
+// Global interface for AI helper
 export const AIHelper = {
   // 1. Generate subjective questions
   generateQuestions: async (
@@ -57,37 +119,15 @@ export const AIHelper = {
           }
         `;
 
-        const response = await fetch(
-          'https://api.groq.com/openai/v1/chat/completions',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
-              messages: [{ role: 'user', content: prompt }],
-              response_format: { type: 'json_object' }
-            })
-          }
-        );
-
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error.message || 'Groq API returned an error');
-        }
-
-        const textResponse = data.choices?.[0]?.message?.content;
+        const textResponse = await callLLM(prompt, true);
         if (textResponse) {
-          const parsed = JSON.parse(textResponse);
+          const parsed = JSON.parse(cleanJsonString(textResponse));
           if (parsed && Array.isArray(parsed.questions)) return parsed.questions;
           if (Array.isArray(parsed)) return parsed;
         }
-        throw new Error('Groq API did not return a valid list of questions');
+        throw new Error('AI API did not return a valid list of questions');
       } catch (error) {
-        console.error('Failed to generate using Groq API, falling back to simulator', error);
+        console.error('Failed to generate using AI, falling back to simulator', error);
       }
     }
 
@@ -199,7 +239,7 @@ export const AIHelper = {
     });
   },
 
-  // 2. Evaluate subjective answers
+  // 3. Evaluate subjective answers
   evaluateAnswers: async (
     questions: Question[],
     answers: Record<string, string>
@@ -242,37 +282,15 @@ export const AIHelper = {
           }
         `;
 
-        const response = await fetch(
-          'https://api.groq.com/openai/v1/chat/completions',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
-              messages: [{ role: 'user', content: prompt }],
-              response_format: { type: 'json_object' }
-            })
-          }
-        );
-
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error.message || 'Groq API returned an error');
-        }
-
-        const textResponse = data.choices?.[0]?.message?.content;
+        const textResponse = await callLLM(prompt, true);
         if (textResponse) {
-          const parsed = JSON.parse(textResponse);
+          const parsed = JSON.parse(cleanJsonString(textResponse));
           if (parsed && Array.isArray(parsed.evaluations)) return parsed.evaluations;
           if (Array.isArray(parsed)) return parsed;
         }
-        throw new Error('Groq API did not return a valid list of evaluations');
+        throw new Error('AI API did not return a valid list of evaluations');
       } catch (error) {
-        console.error('Failed to evaluate using Groq API, falling back to simulator', error);
+        console.error('Failed to evaluate using AI, falling back to simulator', error);
       }
     }
 
