@@ -121,10 +121,18 @@ export default function ProfilePage() {
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
           {/* Avatar & Rank Ring */}
           <div className="relative">
-            <div className="w-24 h-24 rounded-2xl border-2 border-cyber-blue/50 bg-[#060a22] overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.2)]">
-              <span className="font-orbitron font-black text-3xl text-cyber-blue uppercase">
-                {user.name.charAt(0)}
-              </span>
+            <div className="w-24 h-24 rounded-2xl border-2 border-cyber-blue/50 bg-[#060a22] overflow-hidden shadow-[0_0_20px_rgba(0,240,255,0.2)]">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center font-orbitron font-black text-3xl text-cyber-blue uppercase">
+                  {user.name.charAt(0)}
+                </div>
+              )}
             </div>
             <div className="absolute -bottom-2 -right-2 bg-cyber-pink text-white font-orbitron font-black text-[9px] px-2 py-0.5 rounded-full border border-slate-900 shadow-md flex items-center gap-1">
               <Flame className="w-3 h-3 fill-white" /> {user.streak}d

@@ -233,8 +233,15 @@ export default function LeaderboardPage() {
                   {rankLabel}
                 </div>
 
-                <div className="w-16 h-16 rounded-full border-2 border-current flex items-center justify-center font-orbitron font-black text-xl bg-[#050816]/80">
-                  #{entry.rank}
+                <div className="relative">
+                  <img
+                    src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                    alt={entry.name}
+                    className="w-16 h-16 rounded-full border-2 border-current object-cover shadow-lg"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border border-slate-900 bg-[#050816] flex items-center justify-center font-orbitron font-black text-xs text-white">
+                    #{entry.rank}
+                  </div>
                 </div>
 
                 <div>
@@ -299,12 +306,18 @@ export default function LeaderboardPage() {
                   isSelf ? 'bg-cyber-blue/10 border-l-4 border-l-cyber-blue' : 'hover:bg-slate-900/30'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <span className={`font-orbitron font-black text-sm w-7 text-center ${
+                <div className="flex items-center gap-3.5">
+                  <span className={`font-orbitron font-black text-sm w-6 text-center shrink-0 ${
                     entry.rank === 1 ? 'text-amber-400' : entry.rank === 2 ? 'text-slate-300' : entry.rank === 3 ? 'text-amber-600' : 'text-slate-500'
                   }`}>
                     #{entry.rank}
                   </span>
+
+                  <img
+                    src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                    alt={entry.name}
+                    className="w-9 h-9 rounded-full object-cover border border-cyber-blue/40 shrink-0 shadow-sm"
+                  />
 
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
