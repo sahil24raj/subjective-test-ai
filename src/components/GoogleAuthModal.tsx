@@ -9,9 +9,8 @@ interface GoogleAuthModalProps {
   onClose: () => void;
 }
 
-/* ─── Google "G" logo SVG ─── */
-const GoogleLogo = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
+const GoogleLogo = () => (
+  <svg width="20" height="20" viewBox="0 0 48 48">
     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
     <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
     <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -22,18 +21,16 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
 export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClose }) => {
   const { user, loginWithFirebaseUser, updateProfile } = useAppState();
 
-  type ScreenType = 'sign-in' | 'email-login' | 'email-register' | 'onboarding';
-  const [screen, setScreen] = useState<ScreenType>('sign-in');
-
-  // Email Auth state
+  type Screen = 'main' | 'email-login' | 'email-register' | 'onboarding';
+  const [screen, setScreen] = useState<Screen>('main');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Onboarding state
+  // Onboarding
   const [collegeName, setCollegeName] = useState('');
   const [course, setCourse] = useState('');
   const [department, setDepartment] = useState('');
@@ -41,33 +38,43 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
+  const onSuccess = (res: { success: boolean; isNewUser?: boolean }) => {
+    if (res.success) {
+      if (res.isNewUser || !user?.collegeName) {
+        setScreen('onboarding');
+      } else {
+        onClose();
+      }
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
     try {
       const fbUser = await signInWithFirebaseGoogle();
+      setLoading(false);
       const res = loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
         photoURL: fbUser.photoURL,
       });
-      setLoading(false);
-      if (res.success) {
-        if (res.isNewUser || !user?.collegeName) {
-          setScreen('onboarding');
-        } else {
-          onClose();
-        }
-      }
+      onSuccess(res);
     } catch (err: any) {
+      if (err.message === 'REDIRECT_INITIATED') {
+        // Page will reload — show redirecting state
+        setLoading(false);
+        setRedirecting(true);
+        return;
+      }
       setLoading(false);
       if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in popup was closed. Try again.');
+        setError('Sign-in popup was closed. Please try again.');
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError('This domain is not authorized in Firebase. Add it under Authentication → Settings → Authorized domains.');
+        setError('This domain is not authorized. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
       } else {
-        setError(err.message || 'Something went wrong. Please try again.');
+        setError(err.message || 'Sign-in failed. Please try again.');
       }
     }
   };
@@ -77,41 +84,34 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     setLoading(true);
     setError('');
     try {
-      let fbUser;
-      if (screen === 'email-register') {
-        fbUser = await signUpWithFirebaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0]);
-      } else {
-        fbUser = await signInWithFirebaseEmail(email.trim(), password);
-      }
+      const fbUser = screen === 'email-register'
+        ? await signUpWithFirebaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0])
+        : await signInWithFirebaseEmail(email.trim(), password);
+
+      setLoading(false);
       const res = loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
         photoURL: fbUser.photoURL,
       });
-      setLoading(false);
-      if (res.success) {
-        if (res.isNewUser || screen === 'email-register' || !user?.collegeName) {
-          setScreen('onboarding');
-        } else {
-          onClose();
-        }
-      }
+      onSuccess(res);
     } catch (err: any) {
       setLoading(false);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError('Couldn\'t find your account. Check your email and password.');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('An account already exists with this email. Sign in instead.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters.');
+      const code = err.code || '';
+      if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) {
+        setError('Invalid email or password.');
+      } else if (code.includes('email-already-in-use')) {
+        setError('This email is already registered. Try signing in.');
+      } else if (code.includes('weak-password')) {
+        setError('Password must be at least 6 characters.');
       } else {
         setError(err.message || 'Authentication failed.');
       }
     }
   };
 
-  const handleOnboardingSubmit = (e: React.FormEvent) => {
+  const handleOnboarding = (e: React.FormEvent) => {
     e.preventDefault();
     const subjects = subjectsStr.split(',').map(s => s.trim()).filter(Boolean);
     updateProfile({
@@ -124,345 +124,276 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     onClose();
   };
 
+  // ─── Shared Styles ───
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: '44px', padding: '0 14px',
+    borderRadius: '10px', fontSize: '14px', color: '#e2e8f0',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    outline: 'none', fontFamily: "'Inter', system-ui, sans-serif",
+    transition: 'border-color 0.2s',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '12px', fontWeight: 500,
+    color: '#94a3b8', marginBottom: '6px',
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+  const primaryBtnStyle: React.CSSProperties = {
+    width: '100%', height: '44px', borderRadius: '10px',
+    fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+    background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
+    color: '#000', border: 'none',
+    fontFamily: "'Inter', system-ui, sans-serif",
+    boxShadow: '0 4px 15px rgba(0,240,255,0.2)',
+    transition: 'opacity 0.2s',
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
     >
       <div
-        className="w-full max-w-[420px] rounded-2xl overflow-hidden"
         style={{
-          backgroundColor: '#0a0f2c',
+          width: '100%', maxWidth: '400px',
+          borderRadius: '20px', overflow: 'hidden',
+          backgroundColor: '#0c1230',
           border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+          boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
         }}
       >
-        {/* Header */}
-        <div className="px-8 pt-8 pb-2 text-center">
-          <div className="flex justify-center mb-5">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, #00f0ff 0%, #8b5cf6 100%)',
-                boxShadow: '0 4px 20px rgba(0,240,255,0.3)',
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
+        {/* ─── Header ─── */}
+        <div style={{ padding: '32px 32px 8px', textAlign: 'center' }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 14, margin: '0 auto 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(135deg, #00f0ff, #8b5cf6)',
+            boxShadow: '0 4px 20px rgba(0,240,255,0.3)',
+          }}>
+            <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
           </div>
-          <h2 className="text-[22px] font-semibold text-white tracking-tight" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-            {screen === 'onboarding' ? 'Complete your profile' : screen === 'email-register' ? 'Create account' : 'Sign in'}
+          <h2 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0, fontFamily: "'Inter', system-ui, sans-serif" }}>
+            {screen === 'onboarding' ? 'Complete your profile' : screen === 'email-register' ? 'Create account' : 'Welcome back'}
           </h2>
-          <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-            {screen === 'onboarding' ? 'Set up your academic details' : 'to continue to Subjective Test AI'}
+          <p style={{ fontSize: 14, color: '#64748b', margin: '6px 0 0', fontFamily: "'Inter', system-ui, sans-serif" }}>
+            {screen === 'onboarding' ? 'Set up your academic details' : 'Sign in to Subjective Test AI'}
           </p>
         </div>
 
-        {/* Content */}
-        <div className="px-8 py-5">
+        {/* ─── Body ─── */}
+        <div style={{ padding: '20px 32px 28px' }}>
+
           {/* Error */}
           {error && (
-            <div
-              className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-2.5"
-              style={{
-                backgroundColor: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.2)',
-                color: '#fca5a5',
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-              }}
-            >
-              <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
-              </svg>
+            <div style={{
+              marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+              backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+              color: '#fca5a5', fontSize: 13, fontFamily: "'Inter', system-ui, sans-serif",
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <span style={{ fontSize: 16, lineHeight: 1 }}>⚠</span>
               <span>{error}</span>
             </div>
           )}
 
-          {loading ? (
-            /* Loading spinner */
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <div
-                className="w-10 h-10 rounded-full border-[3px] border-slate-700 animate-spin"
-                style={{ borderTopColor: '#00f0ff' }}
-              />
-              <p className="text-sm text-slate-400" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                Connecting to Firebase...
+          {/* Loading / Redirecting */}
+          {(loading || redirecting) ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 16 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                border: '3px solid #1e293b', borderTopColor: '#00f0ff',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              <p style={{ fontSize: 13, color: '#64748b', fontFamily: "'Inter', system-ui, sans-serif" }}>
+                {redirecting ? 'Redirecting to Google...' : 'Authenticating...'}
               </p>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-          ) : screen === 'sign-in' ? (
-            /* ── Main Sign-In Screen ── */
-            <div className="space-y-3">
-              {/* Google Sign In Button */}
+
+          ) : screen === 'main' ? (
+            /* ─── Main Screen ─── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Google Button */}
               <button
                 onClick={handleGoogleSignIn}
-                className="w-full flex items-center justify-center gap-3 h-12 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
                 style={{
-                  backgroundColor: '#fff',
-                  color: '#1f2937',
-                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+                  width: '100%', height: 46, borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  backgroundColor: '#fff', color: '#1f2937', border: 'none',
+                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                  transition: 'background-color 0.2s',
                 }}
-                onMouseEnter={e => { (e.target as HTMLElement).style.backgroundColor = '#f3f4f6'; }}
-                onMouseLeave={e => { (e.target as HTMLElement).style.backgroundColor = '#fff'; }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
               >
-                <GoogleLogo size={20} />
-                <span>Continue with Google</span>
+                <GoogleLogo />
+                Continue with Google
               </button>
 
               {/* Divider */}
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 h-px bg-slate-800" />
-                <span className="text-xs text-slate-500 uppercase tracking-wider" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>or</span>
-                <div className="flex-1 h-px bg-slate-800" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <span style={{ fontSize: 11, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Inter', system-ui, sans-serif" }}>or</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
               </div>
 
-              {/* Email Sign In Button */}
+              {/* Email Button */}
               <button
                 onClick={() => { setError(''); setScreen('email-login'); }}
-                className="w-full flex items-center justify-center gap-2.5 h-12 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
                 style={{
-                  backgroundColor: 'transparent',
-                  color: '#e2e8f0',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  width: '100%', height: 46, borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  backgroundColor: 'transparent', color: '#cbd5e1',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  transition: 'border-color 0.2s, background-color 0.2s',
                 }}
-                onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'rgba(0,240,255,0.3)'; (e.target as HTMLElement).style.backgroundColor = 'rgba(0,240,255,0.04)'; }}
-                onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.target as HTMLElement).style.backgroundColor = 'transparent'; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)'; e.currentTarget.style.backgroundColor = 'rgba(0,240,255,0.03)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
-                <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                <span>Continue with Email</span>
+                ✉ Continue with Email
               </button>
 
-              {/* Create account link */}
-              <div className="pt-2 text-center">
+              {/* Register link */}
+              <div style={{ textAlign: 'center', paddingTop: 4 }}>
                 <button
                   onClick={() => { setError(''); setScreen('email-register'); }}
-                  className="text-sm cursor-pointer"
-                  style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
                 >
-                  Don&apos;t have an account? <span className="font-semibold underline underline-offset-2">Create one</span>
+                  No account? <span style={{ fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>Create one</span>
                 </button>
               </div>
             </div>
 
           ) : screen === 'email-login' || screen === 'email-register' ? (
-            /* ── Email Auth Form ── */
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
+            /* ─── Email Auth ─── */
+            <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {screen === 'email-register' && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                    Full Name
-                  </label>
+                  <label style={labelStyle}>Full Name</label>
                   <input
-                    type="text"
-                    required
-                    value={displayName}
+                    type="text" required value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Sahil Raj"
-                    className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
-                    style={{
-                      backgroundColor: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                    }}
+                    placeholder="Your name"
+                    style={inputStyle}
                     onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                   />
                 </div>
               )}
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Email address
-                </label>
+                <label style={labelStyle}>Email address</label>
                 <input
-                  type="email"
-                  required
-                  value={email}
+                  type="email" required value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@gmail.com"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                  }}
+                  placeholder="you@example.com"
+                  style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Password
-                </label>
+                <label style={labelStyle}>Password</label>
                 <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
+                  type="password" required minLength={6} value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                  }}
+                  style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
-              <button
-                type="submit"
-                className="w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
-                  color: '#000',
-                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                  boxShadow: '0 4px 15px rgba(0,240,255,0.25)',
-                }}
-              >
+              <button type="submit" style={primaryBtnStyle}>
                 {screen === 'email-register' ? 'Create Account' : 'Sign In'}
               </button>
-
-              {/* Toggle between Login / Register */}
-              <div className="text-center pt-1">
-                {screen === 'email-login' ? (
-                  <button
-                    type="button"
-                    onClick={() => { setError(''); setScreen('email-register'); }}
-                    className="text-sm cursor-pointer"
-                    style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
-                  >
-                    Need an account? <span className="font-semibold">Register</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setError(''); setScreen('email-login'); }}
-                    className="text-sm cursor-pointer"
-                    style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
-                  >
-                    Already have an account? <span className="font-semibold">Sign in</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Back to main sign in */}
-              <div className="text-center">
+              <div style={{ textAlign: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => { setError(''); setScreen('sign-in'); }}
-                  className="text-xs cursor-pointer"
-                  style={{ color: '#94a3b8', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  onClick={() => { setError(''); setScreen(screen === 'email-login' ? 'email-register' : 'email-login'); }}
+                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
                 >
-                  ← Back to all sign-in options
+                  {screen === 'email-login' ? 'Need an account? Register' : 'Have an account? Sign in'}
+                </button>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setScreen('main'); }}
+                  style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
+                >
+                  ← All sign-in options
                 </button>
               </div>
             </form>
 
           ) : (
-            /* ── Onboarding: Academic Profile ── */
-            <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-1" style={{ backgroundColor: 'rgba(0,240,255,0.06)', border: '1px solid rgba(0,240,255,0.15)' }}>
-                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#00f0ff" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm" style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Signed in successfully!
-                </span>
+            /* ─── Onboarding ─── */
+            <form onSubmit={handleOnboarding} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{
+                padding: '10px 14px', borderRadius: 10,
+                backgroundColor: 'rgba(0,240,255,0.06)', border: '1px solid rgba(0,240,255,0.15)',
+                color: '#00f0ff', fontSize: 13, fontFamily: "'Inter', system-ui, sans-serif",
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontSize: 16 }}>✓</span> Signed in successfully!
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  College / University
-                </label>
-                <input
-                  type="text" required value={collegeName} onChange={e => setCollegeName(e.target.value)}
-                  placeholder="e.g. IIT Delhi, Chandigarh University"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                <label style={labelStyle}>College / University</label>
+                <input type="text" required value={collegeName} onChange={e => setCollegeName(e.target.value)}
+                  placeholder="e.g. IIT Delhi" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Degree / Course
-                </label>
-                <input
-                  type="text" required value={course} onChange={e => setCourse(e.target.value)}
-                  placeholder="e.g. B.Tech Computer Science"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                <label style={labelStyle}>Degree / Course</label>
+                <input type="text" required value={course} onChange={e => setCourse(e.target.value)}
+                  placeholder="e.g. B.Tech Computer Science" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Department
-                </label>
-                <input
-                  type="text" required value={department} onChange={e => setDepartment(e.target.value)}
-                  placeholder="e.g. AI & Machine Learning"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                <label style={labelStyle}>Department</label>
+                <input type="text" required value={department} onChange={e => setDepartment(e.target.value)}
+                  placeholder="e.g. AI & Machine Learning" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-                  Subjects (comma separated)
-                </label>
-                <input
-                  type="text" value={subjectsStr} onChange={e => setSubjectsStr(e.target.value)}
-                  placeholder="Operating Systems, DBMS, DSA"
-                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                <label style={labelStyle}>Subjects (comma separated)</label>
+                <input type="text" value={subjectsStr} onChange={e => setSubjectsStr(e.target.value)}
+                  placeholder="OS, DBMS, DSA" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-
-              <button
-                type="submit"
-                className="w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer"
-                style={{
-                  background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
-                  color: '#000',
-                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                  boxShadow: '0 4px 15px rgba(0,240,255,0.25)',
-                }}
-              >
-                Complete Setup
-              </button>
+              <button type="submit" style={primaryBtnStyle}>Complete Setup</button>
             </form>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-8 pb-6 pt-2">
-          <div className="flex items-center justify-between text-[11px]" style={{ color: '#475569', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-              Secured by Firebase
-            </span>
-            <span>study-buddy-a26c5</span>
-          </div>
+        {/* ─── Footer ─── */}
+        <div style={{
+          padding: '0 32px 20px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontSize: 11, color: '#334155', fontFamily: "'Inter', system-ui, sans-serif",
+        }}>
+          <span>🔒 Secured by Firebase</span>
+          <span>study-buddy-a26c5</span>
         </div>
       </div>
     </div>

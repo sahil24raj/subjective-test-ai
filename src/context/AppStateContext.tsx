@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Question, Test } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
-import { getFirebaseAuth, logoutFirebase } from '../lib/firebase';
+import { getFirebaseAuth, logoutFirebase, checkRedirectResult } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export interface User {
@@ -127,24 +127,37 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user]);
 
-  // Sync Real Firebase Auth listener
+  // Sync Firebase Auth — handles both popup and redirect flows
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const authInstance = getFirebaseAuth();
-      if (authInstance) {
-        const unsubscribe = onAuthStateChanged(authInstance, (fbUser) => {
-          if (fbUser && fbUser.email) {
-            loginWithFirebaseUser({
-              uid: fbUser.uid,
-              email: fbUser.email,
-              displayName: fbUser.displayName,
-              photoURL: fbUser.photoURL
-            });
-          }
+    if (typeof window === 'undefined') return;
+    
+    const authInstance = getFirebaseAuth();
+    if (!authInstance) return;
+
+    // Check for redirect result (from signInWithRedirect fallback)
+    checkRedirectResult().then((fbUser) => {
+      if (fbUser && fbUser.email) {
+        loginWithFirebaseUser({
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName,
+          photoURL: fbUser.photoURL
         });
-        return () => unsubscribe();
       }
-    }
+    });
+
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(authInstance, (fbUser) => {
+      if (fbUser && fbUser.email) {
+        loginWithFirebaseUser({
+          uid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName,
+          photoURL: fbUser.photoURL
+        });
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const [activeTest, setActiveTest] = useState<Test | null>(() => {

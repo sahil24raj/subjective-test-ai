@@ -2,16 +2,18 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut, 
   Auth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile as updateFirebaseProfile
+  updateProfile as updateFirebaseProfile,
+  browserPopupRedirectResolver
 } from 'firebase/auth';
 
 // Real Firebase SDK Config for study-buddy-a26c5 (subjective-test-ai)
-// Client-side keys are safe to expose — Firebase Security Rules protect data access
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAkPofxxAAySNly6_qSY7_QNF1RkneLvTI",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "study-buddy-a26c5.firebaseapp.com",
@@ -22,91 +24,104 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-8K2VQG4DYE"
 };
 
-/**
- * Safe lazy Firebase App initialization — works on SSR and client
- */
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+
 export const getFirebaseApp = (): FirebaseApp | null => {
   if (typeof window === 'undefined') return null;
+  if (_app) return _app;
   try {
-    if (getApps().length > 0) return getApp();
-    return initializeApp(firebaseConfig);
+    _app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    return _app;
   } catch (e) {
-    console.warn("Firebase init error:", e);
+    console.warn("Firebase init:", e);
     return null;
   }
 };
 
-/**
- * Safe lazy Firebase Auth getter
- */
 export const getFirebaseAuth = (): Auth | null => {
   if (typeof window === 'undefined') return null;
+  if (_auth) return _auth;
   try {
     const app = getFirebaseApp();
     if (!app) return null;
-    return getAuth(app);
+    _auth = getAuth(app);
+    return _auth;
   } catch (e) {
-    console.warn("Firebase Auth error:", e);
+    console.warn("Firebase Auth:", e);
     return null;
   }
 };
 
 /**
- * Firebase Google OAuth Popup Sign In
+ * Sign in with Google — tries popup first, falls back to redirect
  */
 export const signInWithFirebaseGoogle = async () => {
-  if (typeof window === 'undefined') {
-    throw new Error("Firebase Auth requires a browser environment.");
-  }
-  
-  const authInstance = getFirebaseAuth();
-  if (!authInstance) {
-    throw new Error("Firebase could not initialize. Please try again.");
-  }
+  const auth = getFirebaseAuth();
+  if (!auth) throw new Error("Firebase not ready.");
 
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  const result = await signInWithPopup(authInstance, provider);
-  return result.user;
+  try {
+    // Try popup first
+    const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+    return result.user;
+  } catch (popupError: any) {
+    // If popup blocked or unauthorized domain, fall back to redirect
+    if (
+      popupError.code === 'auth/popup-blocked' ||
+      popupError.code === 'auth/unauthorized-domain' ||
+      popupError.code === 'auth/popup-closed-by-user' ||
+      popupError.code === 'auth/cancelled-popup-request'
+    ) {
+      // Use redirect as fallback — page will reload after auth
+      await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
+      // This line won't execute — page navigates away
+      throw new Error('REDIRECT_INITIATED');
+    }
+    throw popupError;
+  }
 };
 
 /**
- * Firebase Email/Password Sign Up
+ * Check for redirect result after page reload
  */
-export const signUpWithFirebaseEmail = async (email: string, pass: string, displayName: string) => {
-  const authInstance = getFirebaseAuth();
-  if (!authInstance) throw new Error("Firebase could not initialize.");
+export const checkRedirectResult = async () => {
+  const auth = getFirebaseAuth();
+  if (!auth) return null;
+  try {
+    const result = await getRedirectResult(auth, browserPopupRedirectResolver);
+    return result?.user || null;
+  } catch (e) {
+    console.warn("Redirect result:", e);
+    return null;
+  }
+};
 
-  const cred = await createUserWithEmailAndPassword(authInstance, email, pass);
+export const signUpWithFirebaseEmail = async (email: string, pass: string, displayName: string) => {
+  const auth = getFirebaseAuth();
+  if (!auth) throw new Error("Firebase not ready.");
+  const cred = await createUserWithEmailAndPassword(auth, email, pass);
   if (cred.user && displayName) {
     await updateFirebaseProfile(cred.user, { displayName });
   }
   return cred.user;
 };
 
-/**
- * Firebase Email/Password Sign In
- */
 export const signInWithFirebaseEmail = async (email: string, pass: string) => {
-  const authInstance = getFirebaseAuth();
-  if (!authInstance) throw new Error("Firebase could not initialize.");
-
-  const cred = await signInWithEmailAndPassword(authInstance, email, pass);
+  const auth = getFirebaseAuth();
+  if (!auth) throw new Error("Firebase not ready.");
+  const cred = await signInWithEmailAndPassword(auth, email, pass);
   return cred.user;
 };
 
-/**
- * Firebase Sign Out
- */
 export const logoutFirebase = async () => {
   if (typeof window === 'undefined') return;
   try {
-    const authInstance = getFirebaseAuth();
-    if (authInstance) {
-      await firebaseSignOut(authInstance);
-    }
+    const auth = getFirebaseAuth();
+    if (auth) await firebaseSignOut(auth);
   } catch (e) {
-    console.warn("Firebase sign out error:", e);
+    console.warn("Sign out:", e);
   }
 };
