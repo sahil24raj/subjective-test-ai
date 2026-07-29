@@ -92,31 +92,41 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const loginWithGoogle = () => {
+    let existingUser: User | null = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_user');
+        if (saved) existingUser = JSON.parse(saved);
+      } catch (e) {}
+    }
+
     // Read saved college info if user previously filled it on generator page
-    const savedCollege = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_collegeName')) || 'IIT Delhi';
-    const savedCourse = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_course')) || 'B.Tech CSE';
-    const savedDept = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_subject')) || 'Computer Science';
+    const savedCollege = existingUser?.collegeName || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_collegeName')) || 'IIT Delhi';
+    const savedCourse = existingUser?.course || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_course')) || 'B.Tech CSE';
+    const savedDept = existingUser?.department || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_subject')) || 'Computer Science';
 
     // Read saved subjects from localStorage if available
-    let savedSubjects: string[] = ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)', 'Computer Networks', 'Software Engineering'];
+    let savedSubjects: string[] = existingUser?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)', 'Computer Networks', 'Software Engineering'];
     try {
       const stored = localStorage.getItem('study_buddy_user_subjects');
-      if (stored) savedSubjects = JSON.parse(stored);
+      if (stored && (!existingUser || !existingUser.subjects || existingUser.subjects.length === 0)) {
+        savedSubjects = JSON.parse(stored);
+      }
     } catch (e) {}
 
     const mockUser: User = {
-      name: 'Sahil Raj',
-      username: 'sahil_raj24',
-      email: 'sahil.raj@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      name: existingUser?.name || 'Sahil Raj',
+      username: existingUser?.username || 'sahil_raj24',
+      email: existingUser?.email || 'sahil.raj@gmail.com',
+      avatar: existingUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
       collegeName: savedCollege,
       course: savedCourse,
       department: savedDept,
       subjects: savedSubjects,
-      xp: 780,
-      level: 'AI Apprentice',
-      streak: 5,
-      isProfileComplete: false
+      xp: existingUser?.xp !== undefined ? existingUser.xp : 780,
+      level: existingUser?.level || 'AI Apprentice',
+      streak: existingUser?.streak !== undefined ? existingUser.streak : 5,
+      isProfileComplete: existingUser?.isProfileComplete ?? true
     };
     setUser(mockUser);
     localStorage.setItem('st_user', JSON.stringify(mockUser));
@@ -133,7 +143,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('st_user');
+    // Note: We do NOT delete st_user from localStorage so all credentials & XP remain preserved when user logs back in!
   };
 
   // Start a new test session
