@@ -3,28 +3,37 @@
 import React, { useState } from 'react';
 import { useAppState } from '../context/AppStateContext';
 import { signInWithFirebaseGoogle, signInWithFirebaseEmail, signUpWithFirebaseEmail } from '../lib/firebase';
-import { X, ShieldCheck, ArrowRight, AlertCircle, Building2, GraduationCap, BookOpen, Lock, Sparkles, CheckCircle2, Mail, Key } from 'lucide-react';
 
 interface GoogleAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, userDirectory, loginWithFirebaseUser, loginWithGoogle, updateProfile } = useAppState();
+/* ─── Google "G" logo SVG ─── */
+const GoogleLogo = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>
+);
 
-  const [activeTab, setActiveTab] = useState<'google' | 'email' | 'onboarding'>('google');
-  const [emailMode, setEmailMode] = useState<'login' | 'register'>('login');
-  
-  // Email Auth inputs
+export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClose }) => {
+  const { user, loginWithFirebaseUser, updateProfile } = useAppState();
+
+  type ScreenType = 'sign-in' | 'email-login' | 'email-register' | 'onboarding';
+  const [screen, setScreen] = useState<ScreenType>('sign-in');
+
+  // Email Auth state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
 
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Academic Onboarding fields
+  // Onboarding state
   const [collegeName, setCollegeName] = useState('');
   const [course, setCourse] = useState('');
   const [department, setDepartment] = useState('');
@@ -32,449 +41,432 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  /**
-   * Real Firebase Google OAuth Sign In Trigger
-   */
-  const handleFirebaseGoogleAuth = async () => {
-    setIsAuthenticating(true);
-    setErrorMessage('');
-
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
     try {
       const fbUser = await signInWithFirebaseGoogle();
-      
       const res = loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
         photoURL: fbUser.photoURL,
       });
-
-      setIsAuthenticating(false);
-
+      setLoading(false);
       if (res.success) {
         if (res.isNewUser || !user?.collegeName) {
-          setActiveTab('onboarding');
+          setScreen('onboarding');
         } else {
           onClose();
         }
       }
     } catch (err: any) {
-      setIsAuthenticating(false);
-      console.error('Firebase Google Auth Error:', err);
-
+      setLoading(false);
       if (err.code === 'auth/popup-closed-by-user') {
-        setErrorMessage('Sign in popup was closed. Please click Sign in with Google again.');
+        setError('Sign-in popup was closed. Try again.');
       } else if (err.code === 'auth/unauthorized-domain') {
-        setErrorMessage('Firebase Authorized Domain required. Switching to Firebase Email Auth.');
-        setActiveTab('email');
+        setError('This domain is not authorized in Firebase. Add it under Authentication → Settings → Authorized domains.');
       } else {
-        setErrorMessage(err.message || 'Google Auth Popup failed. Please try again or use Email Auth.');
+        setError(err.message || 'Something went wrong. Please try again.');
       }
     }
   };
 
-  /**
-   * Real Firebase Email Authentication (Login / Register)
-   */
-  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAuthenticating(true);
-    setErrorMessage('');
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
+    setLoading(true);
+    setError('');
     try {
       let fbUser;
-      if (emailMode === 'register') {
-        fbUser = await signUpWithFirebaseEmail(cleanEmail, cleanPassword, displayName.trim() || cleanEmail.split('@')[0]);
+      if (screen === 'email-register') {
+        fbUser = await signUpWithFirebaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0]);
       } else {
-        fbUser = await signInWithFirebaseEmail(cleanEmail, cleanPassword);
+        fbUser = await signInWithFirebaseEmail(email.trim(), password);
       }
-
       const res = loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
         photoURL: fbUser.photoURL,
       });
-
-      setIsAuthenticating(false);
-
+      setLoading(false);
       if (res.success) {
-        if (res.isNewUser || emailMode === 'register' || !user?.collegeName) {
-          setActiveTab('onboarding');
+        if (res.isNewUser || screen === 'email-register' || !user?.collegeName) {
+          setScreen('onboarding');
         } else {
           onClose();
         }
       }
     } catch (err: any) {
-      setIsAuthenticating(false);
-      console.error('Firebase Email Auth Error:', err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setErrorMessage('Invalid Firebase credentials. Please check your email/password.');
+      setLoading(false);
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError('Couldn\'t find your account. Check your email and password.');
       } else if (err.code === 'auth/email-already-in-use') {
-        setErrorMessage('This email is already registered in Firebase. Switch to Login mode.');
+        setError('An account already exists with this email. Sign in instead.');
       } else if (err.code === 'auth/weak-password') {
-        setErrorMessage('Password should be at least 6 characters long.');
+        setError('Password should be at least 6 characters.');
       } else {
-        setErrorMessage(err.message || 'Firebase Auth failed.');
+        setError(err.message || 'Authentication failed.');
       }
     }
-  };
-
-  const handleSelectExistingAccount = (accountEmail: string) => {
-    setIsAuthenticating(true);
-    setErrorMessage('');
-    setTimeout(() => {
-      const res = loginWithGoogle(accountEmail);
-      setIsAuthenticating(false);
-      if (res.success) {
-        onClose();
-      } else {
-        setErrorMessage(res.message || 'Failed to switch account.');
-      }
-    }, 300);
   };
 
   const handleOnboardingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const subsArray = subjectsStr.split(',').map(s => s.trim()).filter(Boolean);
-
+    const subjects = subjectsStr.split(',').map(s => s.trim()).filter(Boolean);
     updateProfile({
-      collegeName: collegeName.trim() || 'University Scholar',
-      course: course.trim() || 'B.Tech Computer Science',
-      department: department.trim() || 'Computer Science & AI',
-      subjects: subsArray.length > 0 ? subsArray : ['Operating Systems', 'DBMS', 'DSA'],
+      collegeName: collegeName.trim() || 'University',
+      course: course.trim() || 'B.Tech',
+      department: department.trim() || 'Computer Science',
+      subjects: subjects.length > 0 ? subjects : ['Operating Systems', 'DBMS', 'DSA'],
       isProfileComplete: true,
     });
-
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#020512]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-      <div className="w-full max-w-md bg-[#080d26] border border-cyan-500/30 rounded-3xl p-5 sm:p-6 space-y-5 max-h-[90vh] overflow-y-auto my-auto shadow-[0_0_50px_rgba(0,240,255,0.25)] relative">
-        
-        {/* Neon Glow Accent */}
-        <div className="absolute -top-16 -right-16 w-40 h-40 bg-cyber-blue/15 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-slate-800 pb-3.5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-md border border-slate-200 shrink-0">
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-[420px] rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: '#0a0f2c',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+        }}
+      >
+        {/* Header */}
+        <div className="px-8 pt-8 pb-2 text-center">
+          <div className="flex justify-center mb-5">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #00f0ff 0%, #8b5cf6 100%)',
+                boxShadow: '0 4px 20px rgba(0,240,255,0.3)',
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
               </svg>
             </div>
-            <div className="flex flex-col text-left">
-              <h3 className="font-orbitron font-extrabold text-sm text-white uppercase tracking-wider">
-                Firebase Sign In
-              </h3>
-              <span className="font-rajdhani text-xs text-slate-400 font-semibold">
-                {activeTab === 'onboarding' ? 'Academic Profile Setup' : 'Real SaaS Account Portal'}
-              </span>
-            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full bg-slate-900 text-slate-400 hover:text-white border border-slate-800 transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <h2 className="text-[22px] font-semibold text-white tracking-tight" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+            {screen === 'onboarding' ? 'Complete your profile' : screen === 'email-register' ? 'Create account' : 'Sign in'}
+          </h2>
+          <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+            {screen === 'onboarding' ? 'Set up your academic details' : 'to continue to Subjective Test AI'}
+          </p>
         </div>
 
-        {/* Tab Navigation (Google vs Email) */}
-        {activeTab !== 'onboarding' && (
-          <div className="flex rounded-xl bg-[#050816] p-1 border border-slate-800 text-xs font-mono font-bold uppercase">
-            <button
-              onClick={() => setActiveTab('google')}
-              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'google'
-                  ? 'bg-cyber-blue/20 text-cyber-blue border border-cyber-blue/40 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+        {/* Content */}
+        <div className="px-8 py-5">
+          {/* Error */}
+          {error && (
+            <div
+              className="mb-4 px-4 py-3 rounded-xl text-sm flex items-start gap-2.5"
+              style={{
+                backgroundColor: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                color: '#fca5a5',
+                fontFamily: "'Inter', 'Segoe UI', sans-serif",
+              }}
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
               </svg>
-              Google OAuth
-            </button>
-            <button
-              onClick={() => setActiveTab('email')}
-              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'email'
-                  ? 'bg-cyber-blue/20 text-cyber-blue border border-cyber-blue/40 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Mail className="w-3.5 h-3.5 text-cyber-teal" /> Firebase Email
-            </button>
-          </div>
-        )}
+              <span>{error}</span>
+            </div>
+          )}
 
-        {/* Error Notification */}
-        {errorMessage && (
-          <div className="flex items-center gap-2 p-3 rounded-xl border border-cyber-pink/40 bg-cyber-pink/10 text-cyber-pink text-xs font-mono font-bold animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* Authenticating Loading State */}
-        {isAuthenticating ? (
-          <div className="py-10 flex flex-col items-center justify-center space-y-4">
-            <div className="w-10 h-10 border-3 border-cyber-blue border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(0,240,255,0.4)]" />
-            <span className="font-mono text-xs text-cyber-blue font-bold tracking-widest uppercase animate-pulse">
-              Connecting to Firebase Authentication...
-            </span>
-          </div>
-        ) : activeTab === 'google' ? (
-          /* TAB 1: Google OAuth */
-          <div className="space-y-4">
-            
-            {/* Primary Firebase Sign in with Google Button */}
-            <div className="space-y-2 text-center">
+          {loading ? (
+            /* Loading spinner */
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <div
+                className="w-10 h-10 rounded-full border-[3px] border-slate-700 animate-spin"
+                style={{ borderTopColor: '#00f0ff' }}
+              />
+              <p className="text-sm text-slate-400" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                Connecting to Firebase...
+              </p>
+            </div>
+          ) : screen === 'sign-in' ? (
+            /* ── Main Sign-In Screen ── */
+            <div className="space-y-3">
+              {/* Google Sign In Button */}
               <button
-                onClick={handleFirebaseGoogleAuth}
-                className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-orbitron font-extrabold text-xs uppercase tracking-wider transition-all duration-300 transform hover:scale-[1.01] shadow-[0_0_25px_rgba(255,255,255,0.2)] cursor-pointer"
+                onClick={handleGoogleSignIn}
+                className="w-full flex items-center justify-center gap-3 h-12 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
+                style={{
+                  backgroundColor: '#fff',
+                  color: '#1f2937',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+                }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.backgroundColor = '#f3f4f6'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.backgroundColor = '#fff'; }}
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                <GoogleLogo size={20} />
+                <span>Continue with Google</span>
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-slate-800" />
+                <span className="text-xs text-slate-500 uppercase tracking-wider" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>or</span>
+                <div className="flex-1 h-px bg-slate-800" />
+              </div>
+
+              {/* Email Sign In Button */}
+              <button
+                onClick={() => { setError(''); setScreen('email-login'); }}
+                className="w-full flex items-center justify-center gap-2.5 h-12 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#e2e8f0',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                }}
+                onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'rgba(0,240,255,0.3)'; (e.target as HTMLElement).style.backgroundColor = 'rgba(0,240,255,0.04)'; }}
+                onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.target as HTMLElement).style.backgroundColor = 'transparent'; }}
+              >
+                <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
-                Sign in with Google OAuth
+                <span>Continue with Email</span>
               </button>
-              <p className="font-rajdhani text-[11px] text-slate-400 font-medium">
-                Real Firebase Authentication • 1 Google Account = 1 Profile & History
-              </p>
-            </div>
 
-            {/* List of Registered Accounts on Device */}
-            {userDirectory.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    Switch Signed In Account
-                  </span>
-                  <span className="font-mono text-[9px] text-cyber-teal font-bold uppercase flex items-center gap-1 border border-cyber-teal/30 px-2 py-0.5 rounded-full">
-                    <ShieldCheck className="w-3 h-3 text-cyber-teal" /> Verified
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {userDirectory.map((acc) => {
-                    const isActive = user?.email.toLowerCase() === acc.email.toLowerCase();
-                    return (
-                      <div
-                        key={acc.email}
-                        onClick={() => handleSelectExistingAccount(acc.email)}
-                        className={`flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer group ${
-                          isActive
-                            ? 'border-cyber-blue bg-cyber-blue/15 shadow-[0_0_15px_rgba(0,240,255,0.15)]'
-                            : 'border-slate-800 bg-slate-900/60 hover:border-cyber-blue/40 hover:bg-slate-900'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src={acc.avatar}
-                            alt={acc.name}
-                            className="w-7 h-7 rounded-full object-cover border border-cyber-blue/40"
-                          />
-                          <div className="flex flex-col text-left">
-                            <span className="font-mono text-xs font-bold text-slate-100 group-hover:text-cyber-blue transition-colors">
-                              {acc.name}
-                            </span>
-                            <span className="font-rajdhani text-[10px] text-slate-400 font-semibold">{acc.email}</span>
-                          </div>
-                        </div>
-                        {isActive ? (
-                          <span className="font-orbitron font-extrabold text-[9px] text-cyber-teal bg-cyber-teal/10 border border-cyber-teal/40 px-2 py-0.5 rounded-full uppercase">
-                            Active
-                          </span>
-                        ) : (
-                          <ArrowRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-cyber-blue transition-colors" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+              {/* Create account link */}
+              <div className="pt-2 text-center">
+                <button
+                  onClick={() => { setError(''); setScreen('email-register'); }}
+                  className="text-sm cursor-pointer"
+                  style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                >
+                  Don&apos;t have an account? <span className="font-semibold underline underline-offset-2">Create one</span>
+                </button>
               </div>
-            )}
-
-            {/* Quick Demo Login */}
-            <div className="pt-1">
-              <button
-                onClick={() => handleSelectExistingAccount('sahil.raj@gmail.com')}
-                className="w-full py-2.5 rounded-xl border border-slate-800 hover:border-cyber-blue/40 bg-slate-900/60 text-slate-300 hover:text-white font-mono text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-cyber-blue" /> Quick Sign In as Sahil Raj (Demo)
-              </button>
             </div>
 
-          </div>
-        ) : activeTab === 'email' ? (
-          /* TAB 2: Real Firebase Email Auth */
-          <form onSubmit={handleEmailAuthSubmit} className="space-y-3.5 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-              <span className="font-orbitron font-bold text-xs text-cyber-teal uppercase tracking-wider">
-                {emailMode === 'login' ? 'Firebase Sign In' : 'Create Firebase Account'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setEmailMode(emailMode === 'login' ? 'register' : 'login')}
-                className="font-mono text-[10px] text-cyber-blue font-bold uppercase hover:underline cursor-pointer"
-              >
-                {emailMode === 'login' ? 'Need an account? Register' : 'Have an account? Log In'}
-              </button>
-            </div>
+          ) : screen === 'email-login' || screen === 'email-register' ? (
+            /* ── Email Auth Form ── */
+            <form onSubmit={handleEmailSubmit} className="space-y-4">
+              {screen === 'email-register' && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    placeholder="Sahil Raj"
+                    className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                    }}
+                    onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                  />
+                </div>
+              )}
 
-            {emailMode === 'register' && (
-              <div className="space-y-1">
-                <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Sahil Raj"
-                  className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none font-mono"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                <Mail className="w-3.5 h-3.5 text-cyber-blue" /> Firebase Email
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. user@gmail.com"
-                className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none font-mono"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                <Key className="w-3.5 h-3.5 text-cyber-purple" /> Firebase Password
-              </label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none font-mono"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(0,240,255,0.3)] cursor-pointer mt-2"
-            >
-              {emailMode === 'login' ? 'Sign In with Firebase' : 'Register Firebase Account'}
-            </button>
-          </form>
-        ) : (
-          /* TAB 3: Onboarding Academic Details */
-          <form onSubmit={handleOnboardingSubmit} className="space-y-3.5 animate-fade-in">
-            <div className="space-y-1">
-              <span className="font-orbitron font-bold text-xs text-cyber-teal uppercase tracking-widest block flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-cyber-teal" /> Firebase User Verified
-              </span>
-              <p className="font-rajdhani text-[11px] text-slate-400">
-                Setup your university academic profile once to auto-fill exam paper generation.
-              </p>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="space-y-1">
-                <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-cyber-teal" /> College / University Name
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Email address
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={collegeName}
-                  onChange={(e) => setCollegeName(e.target.value)}
-                  placeholder="e.g. IIT Delhi / Chandigarh University"
-                  className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none font-mono"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@gmail.com"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-3.5 h-3.5 text-cyber-purple" /> Degree / Course Program
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Password
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   required
-                  value={course}
-                  onChange={(e) => setCourse(e.target.value)}
+                  minLength={6}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
+                  color: '#000',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  boxShadow: '0 4px 15px rgba(0,240,255,0.25)',
+                }}
+              >
+                {screen === 'email-register' ? 'Create Account' : 'Sign In'}
+              </button>
+
+              {/* Toggle between Login / Register */}
+              <div className="text-center pt-1">
+                {screen === 'email-login' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setError(''); setScreen('email-register'); }}
+                    className="text-sm cursor-pointer"
+                    style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  >
+                    Need an account? <span className="font-semibold">Register</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setError(''); setScreen('email-login'); }}
+                    className="text-sm cursor-pointer"
+                    style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  >
+                    Already have an account? <span className="font-semibold">Sign in</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Back to main sign in */}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setScreen('sign-in'); }}
+                  className="text-xs cursor-pointer"
+                  style={{ color: '#94a3b8', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                >
+                  ← Back to all sign-in options
+                </button>
+              </div>
+            </form>
+
+          ) : (
+            /* ── Onboarding: Academic Profile ── */
+            <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-1" style={{ backgroundColor: 'rgba(0,240,255,0.06)', border: '1px solid rgba(0,240,255,0.15)' }}>
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#00f0ff" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm" style={{ color: '#00f0ff', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Signed in successfully!
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  College / University
+                </label>
+                <input
+                  type="text" required value={collegeName} onChange={e => setCollegeName(e.target.value)}
+                  placeholder="e.g. IIT Delhi, Chandigarh University"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Degree / Course
+                </label>
+                <input
+                  type="text" required value={course} onChange={e => setCourse(e.target.value)}
                   placeholder="e.g. B.Tech Computer Science"
-                  className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none font-mono"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-cyber-blue" /> Department / Specialization
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Department
                 </label>
                 <input
-                  type="text"
-                  required
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  type="text" required value={department} onChange={e => setDepartment(e.target.value)}
                   placeholder="e.g. AI & Machine Learning"
-                  className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none font-mono"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Semester Subjects (comma separated)
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+                  Subjects (comma separated)
                 </label>
                 <input
-                  type="text"
-                  value={subjectsStr}
-                  onChange={(e) => setSubjectsStr(e.target.value)}
-                  placeholder="e.g. Operating Systems, DBMS, DSA"
-                  className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/60 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none font-mono"
+                  type="text" value={subjectsStr} onChange={e => setSubjectsStr(e.target.value)}
+                  placeholder="Operating Systems, DBMS, DSA"
+                  className="w-full h-11 px-4 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(0,240,255,0.3)] cursor-pointer mt-2"
-            >
-              Complete Setup & Launch App
-            </button>
-          </form>
-        )}
-
-        {/* Footer Security Badge */}
-        <div className="pt-2 flex items-center justify-between border-t border-slate-800/80 text-[10px] text-slate-500 font-mono">
-          <span className="flex items-center gap-1">
-            <Lock className="w-3 h-3 text-cyber-teal" /> Real Firebase Auth SDK v11.18
-          </span>
-          <span className="text-slate-600">subjective-test-ai</span>
+              <button
+                type="submit"
+                className="w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer"
+                style={{
+                  background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
+                  color: '#000',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                  boxShadow: '0 4px 15px rgba(0,240,255,0.25)',
+                }}
+              >
+                Complete Setup
+              </button>
+            </form>
+          )}
         </div>
 
+        {/* Footer */}
+        <div className="px-8 pb-6 pt-2">
+          <div className="flex items-center justify-between text-[11px]" style={{ color: '#475569', fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+            <span className="flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Secured by Firebase
+            </span>
+            <span>study-buddy-a26c5</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
 export default GoogleAuthModal;
