@@ -6,7 +6,8 @@ import { useAppState } from '../../context/AppStateContext';
 
 export default function LeaderboardPage() {
   const { user, userDirectory, customFriends, addFriendByUsername } = useAppState();
-  const [tab, setTab] = useState<'college' | 'department' | 'friend'>('college');
+  const [tab, setTab] = useState<'all' | 'college' | 'department' | 'friend'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Friend Add state
   const [friendInput, setFriendInput] = useState('');
@@ -24,6 +25,15 @@ export default function LeaderboardPage() {
     setTimeout(() => setAddFeedback(null), 4000);
   };
 
+  // Global PW / Byju's style benchmark scholars (Real SaaS feel)
+  const BENCHMARK_SCHOLARS = [
+    { name: 'Aarav Mehta', username: 'aarav_mehta', email: 'aarav@gmail.com', collegeName: 'Chandigarh University UP Campus', department: 'AI ML', xp: 1450, level: 'Semester Warrior', streak: 12, testsCompleted: 14 },
+    { name: 'Neha Sharma', username: 'neha_sharma', email: 'neha@gmail.com', collegeName: 'Chandigarh University UP Campus', department: 'AI ML', xp: 1120, level: 'Semester Warrior', streak: 9, testsCompleted: 11 },
+    { name: 'Priya Iyer', username: 'priya_iyer', email: 'priya@gmail.com', collegeName: 'IIT Delhi', department: 'Computer Science', xp: 950, level: 'AI Apprentice', streak: 7, testsCompleted: 9 },
+    { name: 'Vikram Aditya', username: 'vikram_aditya', email: 'vikram@gmail.com', collegeName: 'BITS Pilani', department: 'ECE', xp: 880, level: 'AI Apprentice', streak: 6, testsCompleted: 8 },
+    { name: 'Kabir Kapoor', username: 'kabir_kapoor', email: 'kabir@gmail.com', collegeName: 'IIT Bombay', department: 'Mechanical', xp: 620, level: 'Knowledge Explorer', streak: 4, testsCompleted: 6 }
+  ];
+
   // Compile real active accounts dynamically
   const activeUser = user || {
     name: 'Sahil Raj',
@@ -38,16 +48,16 @@ export default function LeaderboardPage() {
     isCurrentUser: true
   };
 
-  // Build combined directory with logged-in user + directory users
+  // Build combined directory with logged-in user + directory users + benchmarks
   const allAccountsMap = new Map<string, any>();
   
-  // Add active user
+  // 1. Add active user
   allAccountsMap.set(activeUser.username.toLowerCase(), {
     ...activeUser,
     isCurrentUser: true
   });
 
-  // Add all other logged-in accounts from device directory
+  // 2. Add all other logged-in accounts from device directory
   userDirectory.forEach(u => {
     const handle = u.username.toLowerCase();
     if (!allAccountsMap.has(handle)) {
@@ -60,6 +70,17 @@ export default function LeaderboardPage() {
         ...allAccountsMap.get(handle),
         ...u,
         isCurrentUser: true
+      });
+    }
+  });
+
+  // 3. Add benchmark scholars for PW/Byju's global ranking
+  BENCHMARK_SCHOLARS.forEach(b => {
+    const handle = b.username.toLowerCase();
+    if (!allAccountsMap.has(handle)) {
+      allAccountsMap.set(handle, {
+        ...b,
+        isCurrentUser: false
       });
     }
   });
@@ -80,6 +101,14 @@ export default function LeaderboardPage() {
   } else if (tab === 'friend') {
     filteredEntries = filteredEntries.filter(
       u => u.isCurrentUser || customFriends.includes(u.username.toLowerCase())
+    );
+  }
+
+  // Search filter
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase().replace(/^@/, '');
+    filteredEntries = filteredEntries.filter(
+      u => u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q) || u.collegeName.toLowerCase().includes(q)
     );
   }
 
@@ -106,18 +135,28 @@ export default function LeaderboardPage() {
               Academic Scholar Leaderboard
             </h1>
             <p className="font-rajdhani text-xs text-slate-400 font-semibold tracking-wide">
-              Real Scholar Ranks • Instagram / PW Style @username (Full Name) Format
+              PW / Byju's Style Realtime Ranks • Filter by All, College, Dept, or Friends
             </p>
           </div>
         </div>
 
-        {/* Tab Switchers */}
-        <div className="flex bg-[#080d21] border border-slate-800 p-1 rounded-xl">
+        {/* Tab Switchers (ALL, COLLEGE, DEPT, FRIENDS) */}
+        <div className="flex flex-wrap bg-[#080d21] border border-slate-800 p-1 rounded-xl">
+          <button
+            onClick={() => setTab('all')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+              tab === 'all'
+                ? 'bg-cyber-blue/20 text-cyber-blue border border-cyber-blue/40 shadow-[0_0_10px_rgba(0,240,255,0.25)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" /> All Scholars
+          </button>
           <button
             onClick={() => setTab('college')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'college'
-                ? 'bg-cyber-blue/15 text-cyber-blue border border-cyber-blue/30 shadow-[0_0_10px_rgba(0,240,255,0.2)]'
+                ? 'bg-cyber-teal/20 text-cyber-teal border border-cyber-teal/40 shadow-[0_0_10px_rgba(0,255,213,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -125,9 +164,9 @@ export default function LeaderboardPage() {
           </button>
           <button
             onClick={() => setTab('department')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'department'
-                ? 'bg-cyber-teal/15 text-cyber-teal border border-cyber-teal/30 shadow-[0_0_10px_rgba(0,255,213,0.2)]'
+                ? 'bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/40 shadow-[0_0_10px_rgba(189,0,255,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -135,9 +174,9 @@ export default function LeaderboardPage() {
           </button>
           <button
             onClick={() => setTab('friend')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'friend'
-                ? 'bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30 shadow-[0_0_10px_rgba(189,0,255,0.2)]'
+                ? 'bg-cyber-pink/20 text-cyber-pink border border-cyber-pink/40 shadow-[0_0_10px_rgba(255,0,85,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -252,11 +291,26 @@ export default function LeaderboardPage() {
 
       {/* Full Leaderboard Table */}
       <div className="cyber-glass rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+        <div className="px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/40">
           <span className="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-            <Shield className="w-4 h-4 text-cyber-blue" /> Registered Scholar Ranks ({rankedLeaderboard.length})
+            <Shield className="w-4 h-4 text-cyber-blue" />
+            {tab === 'all' && 'All Global Scholars'}
+            {tab === 'college' && `${activeUser.collegeName || 'College'} Scholars`}
+            {tab === 'department' && `${activeUser.department || 'Department'} Scholars`}
+            {tab === 'friend' && 'Friends Leaderboard'}
+            <span className="text-cyber-blue font-mono font-bold">({rankedLeaderboard.length})</span>
           </span>
-          <span className="font-mono text-[10px] text-slate-500 font-bold uppercase">SYNCD REALTIME</span>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, handle or college..."
+              className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/50 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none font-mono"
+            />
+          </div>
         </div>
 
         <div className="divide-y divide-slate-800/60">
