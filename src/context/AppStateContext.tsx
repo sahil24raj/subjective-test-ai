@@ -131,16 +131,27 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const loginWithGoogle = (customEmail?: string) => {
-    const targetEmail = customEmail || 'sahil.raj@gmail.com';
+    const targetEmail = customEmail ? customEmail.trim().toLowerCase() : 'sahil.raj@gmail.com';
 
-    // Check if account already exists in userDirectory
-    const existingInDir = userDirectory.find(u => u.email === targetEmail);
+    let savedProfile: Partial<User> | null = null;
 
-    let savedProfile: Partial<User> | null = existingInDir || null;
-    if (!savedProfile && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem(`st_profile_${targetEmail}`);
-        if (saved) savedProfile = JSON.parse(saved);
+        // 1. Try loading account-specific profile
+        const emailKey = `st_profile_${targetEmail}`;
+        const savedAccount = localStorage.getItem(emailKey);
+        if (savedAccount) {
+          savedProfile = JSON.parse(savedAccount);
+        } else {
+          // 2. Try searching in userDirectory
+          const dirFound = userDirectory.find(u => u.email.toLowerCase() === targetEmail);
+          if (dirFound) {
+            savedProfile = dirFound;
+          } else if (targetEmail === 'sahil.raj@gmail.com') {
+            const rootSaved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
+            if (rootSaved) savedProfile = JSON.parse(rootSaved);
+          }
+        }
       } catch (e) {}
     }
 
@@ -160,7 +171,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       xp: savedProfile?.xp !== undefined ? savedProfile.xp : 780,
       level: savedProfile?.level || 'AI Apprentice',
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 5,
-      testsCompleted: savedProfile?.testsCompleted || testHistory.length || 1,
+      testsCompleted: savedProfile?.testsCompleted || 1,
       isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
     };
 
@@ -185,7 +196,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (typeof window !== 'undefined') {
         localStorage.setItem('st_user', JSON.stringify(updated));
         localStorage.setItem('st_saved_profile', JSON.stringify(updated));
-        localStorage.setItem(`st_profile_${updated.email}`, JSON.stringify(updated));
+        localStorage.setItem(`st_profile_${updated.email.toLowerCase()}`, JSON.stringify(updated));
       }
       return updated;
     });
@@ -203,29 +214,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: `@${cleanHandle} is already in your friends leaderboard!` };
     }
 
-    // Check if user exists in userDirectory
-    let friendUser = userDirectory.find(u => u.username.toLowerCase() === cleanHandle);
+    // Validate if friend exists in real userDirectory
+    const friendUser = userDirectory.find(u => u.username.toLowerCase() === cleanHandle);
     
-    // If friend does not exist in local directory yet, create dynamic user entry for them
     if (!friendUser) {
-      const friendlyName = cleanHandle.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-      friendUser = {
-        id: `usr_${cleanHandle}_${Date.now()}`,
-        name: friendlyName,
-        username: cleanHandle,
-        email: `${cleanHandle}@student.edu`,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-        collegeName: user?.collegeName || 'Partner University',
-        course: user?.course || 'B.Tech',
-        department: user?.department || 'Computer Science',
-        subjects: user?.subjects || [],
-        xp: 820,
-        level: 'Semester Warrior',
-        streak: 7,
-        testsCompleted: 6,
-        isProfileComplete: true
+      return {
+        success: false,
+        message: `No real registered scholar found with username @${cleanHandle}. (Only registered users can be added!)`
       };
-      saveToDirectory(friendUser);
     }
 
     const updated = [...customFriends, cleanHandle];
