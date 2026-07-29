@@ -3,7 +3,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Question, Test } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
-import { getFirebaseAuth, logoutFirebase, checkRedirectResult } from '../lib/firebase';
+import { 
+  getFirebaseAuth, 
+  logoutFirebase, 
+  checkRedirectResult, 
+  saveUserProfileToFirestore, 
+  subscribeToAllUsersFromFirestore 
+} from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export interface User {
@@ -160,6 +166,24 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => unsubscribe();
   }, []);
 
+  // Real-time Cloud Firestore Leaderboard & User Directory Sync (across all devices)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const unsubscribe = subscribeToAllUsersFromFirestore((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUserDirectory(prev => {
+          const map = new Map<string, User>();
+          prev.forEach(u => map.set(u.email.toLowerCase(), u));
+          cloudUsers.forEach(u => map.set(u.email.toLowerCase(), u));
+          const merged = Array.from(map.values());
+          localStorage.setItem('st_user_directory', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [activeTest, setActiveTest] = useState<Test | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -180,8 +204,12 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return {};
   });
 
-  // Save account to global user directory
+  // Save account to global user directory and Cloud Firestore
   const saveToDirectory = (userData: User) => {
+    // 1. Sync to Cloud Firestore database
+    saveUserProfileToFirestore(userData);
+
+    // 2. Update local state & localStorage
     setUserDirectory(prev => {
       const filtered = prev.filter(u => u.email.toLowerCase() !== userData.email.toLowerCase());
       const updated = [userData, ...filtered];

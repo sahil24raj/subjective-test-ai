@@ -12,6 +12,15 @@ import {
   updateProfile as updateFirebaseProfile,
   browserPopupRedirectResolver
 } from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  collection, 
+  onSnapshot, 
+  query, 
+  Firestore 
+} from 'firebase/firestore';
 
 // Real Firebase SDK Config for study-buddy-a26c5 (subjective-test-ai)
 const firebaseConfig = {
@@ -26,6 +35,7 @@ const firebaseConfig = {
 
 let _app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
+let _db: Firestore | null = null;
 
 export const getFirebaseApp = (): FirebaseApp | null => {
   if (typeof window === 'undefined') return null;
@@ -53,6 +63,20 @@ export const getFirebaseAuth = (): Auth | null => {
   }
 };
 
+export const getFirebaseFirestore = (): Firestore | null => {
+  if (typeof window === 'undefined') return null;
+  if (_db) return _db;
+  try {
+    const app = getFirebaseApp();
+    if (!app) return null;
+    _db = getFirestore(app);
+    return _db;
+  } catch (e) {
+    console.warn("Firebase Firestore:", e);
+    return null;
+  }
+};
+
 /**
  * Sign in with Google — tries popup first, falls back to redirect
  */
@@ -64,20 +88,16 @@ export const signInWithFirebaseGoogle = async () => {
   provider.setCustomParameters({ prompt: 'select_account' });
 
   try {
-    // Try popup first
     const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
     return result.user;
   } catch (popupError: any) {
-    // If popup blocked or unauthorized domain, fall back to redirect
     if (
       popupError.code === 'auth/popup-blocked' ||
       popupError.code === 'auth/unauthorized-domain' ||
       popupError.code === 'auth/popup-closed-by-user' ||
       popupError.code === 'auth/cancelled-popup-request'
     ) {
-      // Use redirect as fallback — page will reload after auth
       await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
-      // This line won't execute — page navigates away
       throw new Error('REDIRECT_INITIATED');
     }
     throw popupError;
@@ -123,5 +143,48 @@ export const logoutFirebase = async () => {
     if (auth) await firebaseSignOut(auth);
   } catch (e) {
     console.warn("Sign out:", e);
+  }
+};
+
+/**
+ * Save / sync user profile to Cloud Firestore `users` collection
+ */
+export const saveUserProfileToFirestore = async (userData: any) => {
+  if (typeof window === 'undefined' || !userData || !userData.email) return;
+  try {
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    const userDocRef = doc(db, 'users', userData.email.toLowerCase());
+    await setDoc(userDocRef, {
+      ...userData,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Firestore user save warning:", e);
+  }
+};
+
+/**
+ * Real-time subscription to ALL registered users from Cloud Firestore
+ */
+export const subscribeToAllUsersFromFirestore = (callback: (users: any[]) => void) => {
+  if (typeof window === 'undefined') return () => {};
+  try {
+    const db = getFirebaseFirestore();
+    if (!db) return () => {};
+    const usersQuery = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+      const usersList: any[] = [];
+      snapshot.forEach(docSnap => {
+        usersList.push(docSnap.data());
+      });
+      callback(usersList);
+    }, (err) => {
+      console.warn("Firestore snapshot listener error:", err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    console.warn("Firestore subscription error:", e);
+    return () => {};
   }
 };
