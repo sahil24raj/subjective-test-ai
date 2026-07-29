@@ -14,14 +14,14 @@ function GeneratorForm() {
   // URL query pre-population
   const queryTopic = searchParams.get('topic') || '';
 
-  // Form states
+  // Form states with localStorage persistence
   const [collegeName, setCollegeName] = useState('');
   const [course, setCourse] = useState('');
   const [subject, setSubject] = useState('');
-  const [topic, setTopic] = useState(queryTopic);
-  const [questionCount, setQuestionCount] = useState<number | 'random'>(5);
+  const [topic, setTopic] = useState(queryTopic || 'All');
+  const [questionCount, setQuestionCount] = useState<number | 'random'>('random');
   const [questionType, setQuestionType] = useState<'very-short' | 'short' | 'long' | 'very-long' | 'mixed'>('mixed');
-  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Mixed'>('Medium');
+  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Mixed'>('Mixed');
   const [examMode, setExamMode] = useState<'Unit Test' | 'Mid Semester' | 'End Semester' | 'Viva Practice'>('Unit Test');
 
   // AI Generation animation state
@@ -37,10 +37,40 @@ function GeneratorForm() {
     'Finalizing exam room environment...'
   ];
 
-  // If query changes, update states
+  // Load saved details on mount
   useEffect(() => {
-    if (queryTopic) setTopic(queryTopic);
+    try {
+      const savedCollege = localStorage.getItem('study_buddy_collegeName');
+      const savedCourse = localStorage.getItem('study_buddy_course');
+      const savedSubject = localStorage.getItem('study_buddy_subject');
+      const savedTopic = localStorage.getItem('study_buddy_topic');
+
+      if (savedCollege) setCollegeName(savedCollege);
+      if (savedCourse) setCourse(savedCourse);
+      if (savedSubject) setSubject(savedSubject);
+      if (!queryTopic && savedTopic) setTopic(savedTopic);
+    } catch (e) {
+      console.error('Failed to load saved config from localStorage', e);
+    }
   }, [queryTopic]);
+
+  // Save details when inputs change
+  const handleCollegeChange = (val: string) => {
+    setCollegeName(val);
+    try { localStorage.setItem('study_buddy_collegeName', val); } catch (e) {}
+  };
+  const handleCourseChange = (val: string) => {
+    setCourse(val);
+    try { localStorage.setItem('study_buddy_course', val); } catch (e) {}
+  };
+  const handleSubjectChange = (val: string) => {
+    setSubject(val);
+    try { localStorage.setItem('study_buddy_subject', val); } catch (e) {}
+  };
+  const handleTopicChange = (val: string) => {
+    setTopic(val);
+    try { localStorage.setItem('study_buddy_topic', val); } catch (e) {}
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,7 +222,7 @@ function GeneratorForm() {
                   type="text"
                   required
                   value={collegeName}
-                  onChange={(e) => setCollegeName(e.target.value)}
+                  onChange={(e) => handleCollegeChange(e.target.value)}
                   placeholder="e.g. IIT Delhi"
                   className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
@@ -207,7 +237,7 @@ function GeneratorForm() {
                   type="text"
                   required
                   value={course}
-                  onChange={(e) => setCourse(e.target.value)}
+                  onChange={(e) => handleCourseChange(e.target.value)}
                   placeholder="e.g. B.Tech CSE"
                   className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
@@ -224,7 +254,7 @@ function GeneratorForm() {
                   type="text"
                   required
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
                   placeholder="e.g. Operating Systems"
                   className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
@@ -239,8 +269,8 @@ function GeneratorForm() {
                   type="text"
                   required
                   value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. CPU Scheduling"
+                  onChange={(e) => handleTopicChange(e.target.value)}
+                  placeholder="e.g. CPU Scheduling or All"
                   className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
               </div>

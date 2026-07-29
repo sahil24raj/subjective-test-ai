@@ -135,10 +135,10 @@ export default function ExamHall() {
     }
   };
 
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+
   const handleSubmitClick = () => {
-    if (confirm('Are you sure you want to submit your test paper for AI evaluation? Once submitted, you cannot change your answers.')) {
-      executeSubmission();
-    }
+    setShowSubmitModal(true);
   };
 
   // Local AI Hint logic
@@ -162,6 +162,47 @@ export default function ExamHall() {
   return (
     <div className={mainStyleClass}>
       
+
+      {/* Cyberpunk Custom Submit Confirmation Modal */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-50 bg-[#050816]/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md p-6 rounded-2xl border border-cyber-pink/40 bg-[#060a22]/95 shadow-[0_0_30px_rgba(255,0,85,0.25)] space-y-5 animate-fade-in">
+            <div className="flex items-center gap-3 border-b border-cyber-pink/20 pb-3">
+              <CheckSquare className="w-6 h-6 text-cyber-pink animate-pulse" />
+              <div>
+                <h3 className="font-orbitron font-extrabold text-sm text-white uppercase tracking-wider">
+                  Submit Exam Paper?
+                </h3>
+                <p className="font-rajdhani text-xs text-slate-400 font-semibold">
+                  Confirm submission for AI evaluation engine
+                </p>
+              </div>
+            </div>
+            
+            <p className="font-mono text-xs text-slate-300 leading-relaxed bg-slate-950/60 border border-slate-800 p-3.5 rounded-xl">
+              Are you sure you want to submit your test paper? Once submitted, your answers will be locked and sent for evaluation.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setShowSubmitModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white hover:border-slate-700 font-orbitron font-bold text-xs uppercase tracking-wider cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowSubmitModal(false);
+                  executeSubmission();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyber-pink to-cyber-purple hover:from-cyber-purple hover:to-cyber-pink text-white font-orbitron font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-[0_0_15px_rgba(255,0,85,0.3)] transition-all"
+              >
+                Confirm Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* Header Info row */}
