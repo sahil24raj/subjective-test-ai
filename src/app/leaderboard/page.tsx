@@ -25,15 +25,6 @@ export default function LeaderboardPage() {
     setTimeout(() => setAddFeedback(null), 4000);
   };
 
-  // Global PW / Byju's style benchmark scholars (Real SaaS feel)
-  const BENCHMARK_SCHOLARS = [
-    { name: 'Aarav Mehta', username: 'aarav_mehta', email: 'aarav@gmail.com', collegeName: 'Chandigarh University UP Campus', department: 'AI ML', xp: 1450, level: 'Semester Warrior', streak: 12, testsCompleted: 14 },
-    { name: 'Neha Sharma', username: 'neha_sharma', email: 'neha@gmail.com', collegeName: 'Chandigarh University UP Campus', department: 'AI ML', xp: 1120, level: 'Semester Warrior', streak: 9, testsCompleted: 11 },
-    { name: 'Priya Iyer', username: 'priya_iyer', email: 'priya@gmail.com', collegeName: 'IIT Delhi', department: 'Computer Science', xp: 950, level: 'AI Apprentice', streak: 7, testsCompleted: 9 },
-    { name: 'Vikram Aditya', username: 'vikram_aditya', email: 'vikram@gmail.com', collegeName: 'BITS Pilani', department: 'ECE', xp: 880, level: 'AI Apprentice', streak: 6, testsCompleted: 8 },
-    { name: 'Kabir Kapoor', username: 'kabir_kapoor', email: 'kabir@gmail.com', collegeName: 'IIT Bombay', department: 'Mechanical', xp: 620, level: 'Knowledge Explorer', streak: 4, testsCompleted: 6 }
-  ];
-
   // Compile real active accounts dynamically
   const activeUser = user || {
     name: 'Sahil Raj',
@@ -48,7 +39,7 @@ export default function LeaderboardPage() {
     isCurrentUser: true
   };
 
-  // Build combined directory with logged-in user + directory users + benchmarks
+  // Build combined directory with logged-in user + directory users (ONLY REAL USERS)
   const allAccountsMap = new Map<string, any>();
   
   // 1. Add active user
@@ -70,17 +61,6 @@ export default function LeaderboardPage() {
         ...allAccountsMap.get(handle),
         ...u,
         isCurrentUser: true
-      });
-    }
-  });
-
-  // 3. Add benchmark scholars for PW/Byju's global ranking
-  BENCHMARK_SCHOLARS.forEach(b => {
-    const handle = b.username.toLowerCase();
-    if (!allAccountsMap.has(handle)) {
-      allAccountsMap.set(handle, {
-        ...b,
-        isCurrentUser: false
       });
     }
   });
@@ -108,7 +88,7 @@ export default function LeaderboardPage() {
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase().replace(/^@/, '');
     filteredEntries = filteredEntries.filter(
-      u => u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q) || u.collegeName.toLowerCase().includes(q)
+      u => u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q) || (u.collegeName && u.collegeName.toLowerCase().includes(q))
     );
   }
 
@@ -135,7 +115,7 @@ export default function LeaderboardPage() {
               Academic Scholar Leaderboard
             </h1>
             <p className="font-rajdhani text-xs text-slate-400 font-semibold tracking-wide">
-              PW / Byju's Style Realtime Ranks • Filter by All, College, Dept, or Friends
+              Realtime Scholar Ranks • Filter by All, College, Dept, or Friends
             </p>
           </div>
         </div>
