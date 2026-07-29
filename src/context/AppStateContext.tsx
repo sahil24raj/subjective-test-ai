@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Question, Test } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
+import { getFirebaseAuth, logoutFirebase } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export interface User {
   id?: string;
@@ -124,6 +126,26 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   }, [user]);
+
+  // Sync Real Firebase Auth listener
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const authInstance = getFirebaseAuth();
+      if (authInstance) {
+        const unsubscribe = onAuthStateChanged(authInstance, (fbUser) => {
+          if (fbUser && fbUser.email) {
+            loginWithFirebaseUser({
+              uid: fbUser.uid,
+              email: fbUser.email,
+              displayName: fbUser.displayName,
+              photoURL: fbUser.photoURL
+            });
+          }
+        });
+        return () => unsubscribe();
+      }
+    }
+  }, []);
 
   const [activeTest, setActiveTest] = useState<Test | null>(() => {
     if (typeof window !== 'undefined') {
@@ -355,6 +377,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (typeof window !== 'undefined') {
       localStorage.removeItem('st_user');
     }
+    logoutFirebase();
   };
 
   // Start a new test session

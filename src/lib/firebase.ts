@@ -1,5 +1,14 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, Auth } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut as firebaseSignOut, 
+  Auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile as updateFirebaseProfile
+} from 'firebase/auth';
 
 const getFirebaseConfig = () => {
   return {
@@ -13,7 +22,7 @@ const getFirebaseConfig = () => {
 };
 
 /**
- * Safe lazy Firebase App initialization (prevents SSR crash on Vercel)
+ * Safe lazy Firebase App initialization
  */
 export const getFirebaseApp = (): FirebaseApp | null => {
   if (typeof window === 'undefined') return null;
@@ -43,7 +52,7 @@ export const getFirebaseAuth = (): Auth | null => {
 };
 
 /**
- * Triggers Real Firebase Google OAuth Popup safely in client browser
+ * Triggers Real Firebase Google OAuth Popup
  */
 export const signInWithFirebaseGoogle = async () => {
   if (typeof window === 'undefined') {
@@ -52,7 +61,7 @@ export const signInWithFirebaseGoogle = async () => {
   
   const authInstance = getFirebaseAuth();
   if (!authInstance) {
-    throw new Error("Firebase Auth is initializing. Please verify NEXT_PUBLIC_FIREBASE_API_KEY environment variable in Vercel project settings.");
+    throw new Error("Firebase Auth is not initialized. Please check NEXT_PUBLIC_FIREBASE_API_KEY environment variable.");
   }
 
   const provider = new GoogleAuthProvider();
@@ -62,6 +71,31 @@ export const signInWithFirebaseGoogle = async () => {
 
   const result = await signInWithPopup(authInstance, provider);
   return result.user;
+};
+
+/**
+ * Sign up with Email & Password via Real Firebase Auth
+ */
+export const signUpWithFirebaseEmail = async (email: string, pass: string, displayName: string) => {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) throw new Error("Firebase Auth unavailable.");
+
+  const cred = await createUserWithEmailAndPassword(authInstance, email, pass);
+  if (cred.user && displayName) {
+    await updateFirebaseProfile(cred.user, { displayName });
+  }
+  return cred.user;
+};
+
+/**
+ * Sign in with Email & Password via Real Firebase Auth
+ */
+export const signInWithFirebaseEmail = async (email: string, pass: string) => {
+  const authInstance = getFirebaseAuth();
+  if (!authInstance) throw new Error("Firebase Auth unavailable.");
+
+  const cred = await signInWithEmailAndPassword(authInstance, email, pass);
+  return cred.user;
 };
 
 /**
