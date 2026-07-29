@@ -8,7 +8,9 @@ import {
   logoutFirebase, 
   checkRedirectResult, 
   saveUserProfileToFirestore, 
-  subscribeToAllUsersFromFirestore 
+  subscribeToAllUsersFromFirestore,
+  saveTestResultToFirestore,
+  subscribeToUserTestHistoryFromFirestore
 } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -25,7 +27,7 @@ export interface User {
   xp: number;
   level: string;
   streak: number;
-  testsCompleted?: number;
+  testsCompleted: number;
   isProfileComplete?: boolean;
 }
 
@@ -44,27 +46,30 @@ export interface SavedTestResult {
   maxScore: number;
 }
 
-export interface AppState {
+interface AppStateContextType {
   user: User | null;
   userDirectory: User[];
   customFriends: string[];
   testHistory: SavedTestResult[];
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
+  
+  loginWithGoogle: (email?: string, name?: string, avatar?: string) => { success: boolean; message?: string };
   loginWithFirebaseUser: (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) => { success: boolean; isNewUser?: boolean; message?: string };
-  loginWithGoogle: (customEmail?: string, customName?: string, customAvatar?: string) => { success: boolean; message?: string };
-  updateProfile: (updatedData: Partial<User>) => void;
-  addFriendByUsername: (username: string) => { success: boolean; message: string };
   logout: () => void;
+  updateProfile: (data: Partial<User>) => void;
+  addFriendByUsername: (username: string) => { success: boolean; message: string };
+  
   startNewTest: (test: Test) => void;
   saveAnswerDraft: (questionId: string, answerText: string) => void;
   submitActiveTest: (answers: Record<string, string>, evaluations: QuestionEvaluation[]) => SavedTestResult;
-  clearActiveTest: () => void;
+  getTestById: (testId: string) => SavedTestResult | undefined;
 }
 
-const AppStateContext = createContext<AppState | undefined>(undefined);
+const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Current active logged in user state
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -75,104 +80,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   });
 
-const DEFAULT_REGISTERED_USERS: User[] = [
-  {
-    id: 'usr_sahil24raj24',
-    name: 'Sahil Raj',
-    username: 'sahil24raj24',
-    email: 'sahil24raj24@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-    collegeName: 'Chandigarh University UP Campus',
-    course: 'B.Tech CSE',
-    department: 'AI & Machine Learning',
-    subjects: ['Operating Systems', 'DBMS', 'DSA'],
-    xp: 950,
-    level: 'Grandmaster Scholar',
-    streak: 7,
-    testsCompleted: 12,
-    isProfileComplete: true
-  },
-  {
-    id: 'usr_sr24sahil',
-    name: 'SR24 Sahil',
-    username: 'sr24sahil',
-    email: 'sr24sahil@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
-    collegeName: 'Chandigarh University',
-    course: 'B.Tech AI',
-    department: 'Computer Science & AI',
-    subjects: ['Operating Systems', 'DBMS', 'DSA'],
-    xp: 880,
-    level: 'AI Scholar',
-    streak: 5,
-    testsCompleted: 9,
-    isProfileComplete: true
-  },
-  {
-    id: 'usr_tiwaririshabh026',
-    name: 'Rishabh Tiwari',
-    username: 'tiwaririshabh026',
-    email: 'tiwaririshabh026@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80',
-    collegeName: 'IIT Delhi',
-    course: 'B.Tech Computer Science',
-    department: 'Computer Science',
-    subjects: ['Operating Systems', 'DBMS', 'DSA', 'Computer Networks'],
-    xp: 820,
-    level: 'Master Scholar',
-    streak: 4,
-    testsCompleted: 7,
-    isProfileComplete: true
-  },
-  {
-    id: 'usr_amarjeetsrivastava14',
-    name: 'Amarjeet Srivastava',
-    username: 'amarjeetsrivastava14',
-    email: 'amarjeetsrivastava14@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=250&q=80',
-    collegeName: 'Delhi Technological University',
-    course: 'B.Tech Information Technology',
-    department: 'IT & Software',
-    subjects: ['DBMS', 'DSA', 'Web Technology'],
-    xp: 760,
-    level: 'Senior Scholar',
-    streak: 3,
-    testsCompleted: 5,
-    isProfileComplete: true
-  },
-  {
-    id: 'usr_viratchokli18rcbanushka',
-    name: 'Virat Chokli',
-    username: 'viratchokli18rcbanushka',
-    email: 'viratchokli18rcbanushka@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=250&q=80',
-    collegeName: 'BITS Pilani',
-    course: 'B.E. Computer Science',
-    department: 'Computer Science',
-    subjects: ['DSA', 'Theory of Computation', 'Compiler Design'],
-    xp: 710,
-    level: 'Scholar',
-    streak: 2,
-    testsCompleted: 4,
-    isProfileComplete: true
-  }
-];
-
-  // Multi-user directory state
+  // Multi-user directory state — Populated 100% dynamically from Cloud Firestore (NO MOCK DATA)
   const [userDirectory, setUserDirectory] = useState<User[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('st_user_directory');
-        if (saved) {
-          const parsed: User[] = JSON.parse(saved);
-          const map = new Map<string, User>();
-          DEFAULT_REGISTERED_USERS.forEach(u => map.set(u.email.toLowerCase(), u));
-          parsed.forEach(u => map.set(u.email.toLowerCase(), u));
-          return Array.from(map.values());
-        }
+        if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
-    return DEFAULT_REGISTERED_USERS;
+    return [];
   });
 
   // Custom added friends list (by username)
@@ -186,50 +102,44 @@ const DEFAULT_REGISTERED_USERS: User[] = [
     return [];
   });
 
-  // Load account-scoped test history
+  // User-scoped test history
   const [testHistory, setTestHistory] = useState<SavedTestResult[]>([]);
 
-  // Sync test history when user changes
+  // Sync test history from LocalStorage & Cloud Firestore when user changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (user && user.email) {
+    if (typeof window === 'undefined') return;
+    if (user && user.email) {
+      const cleanEmail = user.email.toLowerCase().trim();
+      const userHistoryKey = `st_history_${cleanEmail}`;
+      const savedHistory = localStorage.getItem(userHistoryKey);
+      if (savedHistory) {
         try {
-          const userHistoryKey = `st_history_${user.email.toLowerCase()}`;
-          const savedHistory = localStorage.getItem(userHistoryKey);
-          if (savedHistory) {
-            setTestHistory(JSON.parse(savedHistory));
-          } else {
-            // Check legacy st_history if migrating default user
-            if (user.email.toLowerCase() === 'sahil.raj@gmail.com') {
-              const legacy = localStorage.getItem('st_history');
-              if (legacy) {
-                const parsed = JSON.parse(legacy);
-                setTestHistory(parsed);
-                localStorage.setItem(userHistoryKey, legacy);
-              } else {
-                setTestHistory([]);
-              }
-            } else {
-              setTestHistory([]);
-            }
-          }
+          setTestHistory(JSON.parse(savedHistory));
         } catch (e) {
           setTestHistory([]);
         }
-      } else {
-        setTestHistory([]);
       }
-    }
-  }, [user]);
 
-  // Sync Firebase Auth — handles both popup and redirect flows
+      // Realtime listener for Firestore Test History
+      const unsubscribe = subscribeToUserTestHistoryFromFirestore(cleanEmail, (cloudTests) => {
+        if (cloudTests && cloudTests.length > 0) {
+          setTestHistory(cloudTests);
+          localStorage.setItem(userHistoryKey, JSON.stringify(cloudTests));
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setTestHistory([]);
+    }
+  }, [user?.email]);
+
+  // Sync Firebase Auth — handles popup and redirect flows
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
     const authInstance = getFirebaseAuth();
     if (!authInstance) return;
 
-    // Check for redirect result (from signInWithRedirect fallback)
     checkRedirectResult().then((fbUser) => {
       if (fbUser && fbUser.email) {
         loginWithFirebaseUser({
@@ -241,7 +151,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       }
     });
 
-    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(authInstance, (fbUser) => {
       if (fbUser && fbUser.email) {
         loginWithFirebaseUser({
@@ -255,27 +164,22 @@ const DEFAULT_REGISTERED_USERS: User[] = [
     return () => unsubscribe();
   }, []);
 
-  // Real-time Cloud Firestore Leaderboard & User Directory Sync (across all devices)
+  // Real-time Cloud Firestore User Directory & Global Leaderboard Sync (100% Real Users)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Seed default registered users to Firestore so all 5 Firebase Auth accounts appear immediately
-    DEFAULT_REGISTERED_USERS.forEach(u => {
-      saveUserProfileToFirestore(u);
-    });
-
     const unsubscribe = subscribeToAllUsersFromFirestore((cloudUsers) => {
-      setUserDirectory(prev => {
-        const map = new Map<string, User>();
-        DEFAULT_REGISTERED_USERS.forEach(u => map.set(u.email.toLowerCase(), u));
-        prev.forEach(u => map.set(u.email.toLowerCase(), u));
-        if (cloudUsers && cloudUsers.length > 0) {
-          cloudUsers.forEach(u => map.set(u.email.toLowerCase(), u));
-        }
-        const merged = Array.from(map.values());
-        localStorage.setItem('st_user_directory', JSON.stringify(merged));
-        return merged;
-      });
+      if (cloudUsers) {
+        setUserDirectory(prev => {
+          const map = new Map<string, User>();
+          // Merge local cache and Cloud Firestore real user docs
+          prev.forEach(u => { if (u && u.email) map.set(u.email.toLowerCase(), u); });
+          cloudUsers.forEach(u => { if (u && u.email) map.set(u.email.toLowerCase(), u); });
+          const merged = Array.from(map.values());
+          localStorage.setItem('st_user_directory', JSON.stringify(merged));
+          return merged;
+        });
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -300,9 +204,9 @@ const DEFAULT_REGISTERED_USERS: User[] = [
     return {};
   });
 
-  // Save account to global user directory and Cloud Firestore
+  // Save real account to user directory and Cloud Firestore
   const saveToDirectory = (userData: User) => {
-    // 1. Sync to Cloud Firestore database
+    // 1. Persist to Cloud Firestore database
     saveUserProfileToFirestore(userData);
 
     // 2. Update local state & localStorage
@@ -323,7 +227,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
 
     if (typeof window !== 'undefined') {
       try {
-        // Look up existing profile by email or uid
         const emailKey = `st_profile_${email}`;
         const savedAccount = localStorage.getItem(emailKey);
         if (savedAccount) {
@@ -366,19 +269,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       localStorage.setItem('st_user', JSON.stringify(loggedUser));
       localStorage.setItem('st_saved_profile', JSON.stringify(loggedUser));
       localStorage.setItem(`st_profile_${email}`, JSON.stringify(loggedUser));
-
-      // Load user-scoped history
-      const userHistoryKey = `st_history_${email}`;
-      const savedHistory = localStorage.getItem(userHistoryKey);
-      if (savedHistory) {
-        try {
-          setTestHistory(JSON.parse(savedHistory));
-        } catch (e) {
-          setTestHistory([]);
-        }
-      } else {
-        setTestHistory([]);
-      }
     }
 
     return { success: true, isNewUser };
@@ -387,7 +277,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
   const loginWithGoogle = (customEmail?: string, customName?: string, customAvatar?: string): { success: boolean; message?: string } => {
     const targetEmail = customEmail ? customEmail.trim().toLowerCase() : 'sahil.raj@gmail.com';
 
-    // Strict Email Format Validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(targetEmail)) {
       return { success: false, message: 'Please enter a valid Google email address (e.g. user@gmail.com).' };
@@ -397,19 +286,14 @@ const DEFAULT_REGISTERED_USERS: User[] = [
 
     if (typeof window !== 'undefined') {
       try {
-        // 1. Try loading account-specific profile
         const emailKey = `st_profile_${targetEmail}`;
         const savedAccount = localStorage.getItem(emailKey);
         if (savedAccount) {
           savedProfile = JSON.parse(savedAccount);
         } else {
-          // 2. Try searching in userDirectory
           const dirFound = userDirectory.find(u => u.email.toLowerCase() === targetEmail);
           if (dirFound) {
             savedProfile = dirFound;
-          } else if (targetEmail === 'sahil.raj@gmail.com') {
-            const rootSaved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
-            if (rootSaved) savedProfile = JSON.parse(rootSaved);
           }
         }
       } catch (e) {}
@@ -442,19 +326,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       localStorage.setItem('st_user', JSON.stringify(loggedUser));
       localStorage.setItem('st_saved_profile', JSON.stringify(loggedUser));
       localStorage.setItem(`st_profile_${targetEmail}`, JSON.stringify(loggedUser));
-
-      // Load user-scoped history
-      const userHistoryKey = `st_history_${targetEmail}`;
-      const savedHistory = localStorage.getItem(userHistoryKey);
-      if (savedHistory) {
-        try {
-          setTestHistory(JSON.parse(savedHistory));
-        } catch (e) {
-          setTestHistory([]);
-        }
-      } else {
-        setTestHistory([]);
-      }
     }
 
     return { success: true };
@@ -465,7 +336,6 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       if (!prev) return null;
       const updated = { ...prev, ...updatedData };
 
-      // Also update in directory
       saveToDirectory(updated);
 
       if (typeof window !== 'undefined') {
@@ -489,13 +359,12 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       return { success: false, message: `@${cleanHandle} is already in your friends leaderboard!` };
     }
 
-    // Validate if friend exists in real userDirectory
     const friendUser = userDirectory.find(u => u.username.toLowerCase() === cleanHandle);
     
     if (!friendUser) {
       return {
         success: false,
-        message: `No real registered scholar found with username @${cleanHandle}. (Only registered users can be added!)`
+        message: `No registered scholar found with username @${cleanHandle}.`
       };
     }
 
@@ -517,25 +386,26 @@ const DEFAULT_REGISTERED_USERS: User[] = [
     logoutFirebase();
   };
 
-  // Start a new test session
   const startNewTest = (test: Test) => {
     setActiveTest(test);
     setActiveTestAnswers({});
-    localStorage.setItem('st_active_test', JSON.stringify(test));
-    localStorage.setItem('st_active_answers', JSON.stringify({}));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('st_active_test', JSON.stringify(test));
+      localStorage.setItem('st_active_answers', JSON.stringify({}));
+    }
   };
 
-  // Save answer draft during exam
   const saveAnswerDraft = (questionId: string, answerText: string) => {
     const updated = {
       ...activeTestAnswers,
       [questionId]: answerText
     };
     setActiveTestAnswers(updated);
-    localStorage.setItem('st_active_answers', JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('st_active_answers', JSON.stringify(updated));
+    }
   };
 
-  // Submit active test (Account-scoped)
   const submitActiveTest = (answers: Record<string, string>, evaluations: QuestionEvaluation[]): SavedTestResult => {
     if (!activeTest) throw new Error('No active test session to submit');
 
@@ -545,6 +415,8 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       totalScore += e.score;
       maxScore += e.maxScore;
     });
+
+    const gainedXP = Math.round((totalScore / (maxScore || 1)) * (activeTest.xpReward || 50));
 
     const result: SavedTestResult = {
       id: activeTest.id,
@@ -561,34 +433,35 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       maxScore
     };
 
-    // Save history scoped to current user email
     const updatedHistory = [result, ...testHistory];
     setTestHistory(updatedHistory);
 
-    if (typeof window !== 'undefined') {
-      const emailKey = user?.email ? user.email.toLowerCase() : 'sahil.raj@gmail.com';
-      localStorage.setItem(`st_history_${emailKey}`, JSON.stringify(updatedHistory));
-      localStorage.setItem('st_history', JSON.stringify(updatedHistory)); // Fallback
-    }
+    if (user && user.email) {
+      const cleanEmail = user.email.toLowerCase().trim();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`st_history_${cleanEmail}`, JSON.stringify(updatedHistory));
+      }
+      
+      // Save test result to Cloud Firestore Database
+      saveTestResultToFirestore(cleanEmail, result);
 
-    // Award XP and increment tests completed for active user
-    if (user) {
-      const addedXP = Math.round((totalScore / (maxScore || 1)) * 100);
-      updateProfile({
-        xp: (user.xp || 0) + addedXP,
-        testsCompleted: (user.testsCompleted || 0) + 1
-      });
+      // Update user XP & testsCompleted in Cloud Firestore Database
+      const updatedUser: User = {
+        ...user,
+        xp: (user.xp || 500) + gainedXP,
+        testsCompleted: (user.testsCompleted || 0) + 1,
+        streak: Math.max(user.streak || 1, 1)
+      };
+
+      setUser(updatedUser);
+      saveToDirectory(updatedUser);
     }
 
     return result;
   };
 
-  // Clear active test session draft
-  const clearActiveTest = () => {
-    setActiveTest(null);
-    setActiveTestAnswers({});
-    localStorage.removeItem('st_active_test');
-    localStorage.removeItem('st_active_answers');
+  const getTestById = (testId: string): SavedTestResult | undefined => {
+    return testHistory.find(t => t.id === testId);
   };
 
   return (
@@ -599,15 +472,15 @@ const DEFAULT_REGISTERED_USERS: User[] = [
       testHistory,
       activeTest,
       activeTestAnswers,
-      loginWithFirebaseUser,
       loginWithGoogle,
+      loginWithFirebaseUser,
+      logout,
       updateProfile,
       addFriendByUsername,
-      logout,
       startNewTest,
       saveAnswerDraft,
       submitActiveTest,
-      clearActiveTest
+      getTestById
     }}>
       {children}
     </AppStateContext.Provider>
@@ -616,7 +489,7 @@ const DEFAULT_REGISTERED_USERS: User[] = [
 
 export const useAppState = () => {
   const context = useContext(AppStateContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAppState must be used within an AppStateProvider');
   }
   return context;

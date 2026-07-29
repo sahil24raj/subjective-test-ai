@@ -19,6 +19,7 @@ import {
   collection, 
   onSnapshot, 
   query, 
+  orderBy,
   Firestore 
 } from 'firebase/firestore';
 
@@ -147,25 +148,27 @@ export const logoutFirebase = async () => {
 };
 
 /**
- * Save / sync user profile to Cloud Firestore `users` collection
+ * Save / sync real user profile to Cloud Firestore `users` collection
  */
 export const saveUserProfileToFirestore = async (userData: any) => {
   if (typeof window === 'undefined' || !userData || !userData.email) return;
   try {
     const db = getFirebaseFirestore();
     if (!db) return;
-    const userDocRef = doc(db, 'users', userData.email.toLowerCase());
+    const cleanEmail = userData.email.toLowerCase().trim();
+    const userDocRef = doc(db, 'users', cleanEmail);
     await setDoc(userDocRef, {
       ...userData,
+      email: cleanEmail,
       updatedAt: new Date().toISOString()
     }, { merge: true });
   } catch (e) {
-    console.warn("Firestore user save warning:", e);
+    console.warn("Firestore user save error:", e);
   }
 };
 
 /**
- * Real-time subscription to ALL registered users from Cloud Firestore
+ * Real-time subscription to ONLY REAL registered users from Cloud Firestore
  */
 export const subscribeToAllUsersFromFirestore = (callback: (users: any[]) => void) => {
   if (typeof window === 'undefined') return () => {};
@@ -176,7 +179,10 @@ export const subscribeToAllUsersFromFirestore = (callback: (users: any[]) => voi
     const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
       const usersList: any[] = [];
       snapshot.forEach(docSnap => {
-        usersList.push(docSnap.data());
+        const data = docSnap.data();
+        if (data && data.email) {
+          usersList.push(data);
+        }
       });
       callback(usersList);
     }, (err) => {
@@ -185,6 +191,51 @@ export const subscribeToAllUsersFromFirestore = (callback: (users: any[]) => voi
     return unsubscribe;
   } catch (e) {
     console.warn("Firestore subscription error:", e);
+    return () => {};
+  }
+};
+
+/**
+ * Save real submitted test result to Cloud Firestore
+ */
+export const saveTestResultToFirestore = async (userEmail: string, testResult: any) => {
+  if (typeof window === 'undefined' || !userEmail || !testResult || !testResult.id) return;
+  try {
+    const db = getFirebaseFirestore();
+    if (!db) return;
+    const cleanEmail = userEmail.toLowerCase().trim();
+    const testDocRef = doc(db, 'users', cleanEmail, 'tests', testResult.id);
+    await setDoc(testDocRef, {
+      ...testResult,
+      savedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Firestore test result save error:", e);
+  }
+};
+
+/**
+ * Real-time subscription to user's test history from Cloud Firestore
+ */
+export const subscribeToUserTestHistoryFromFirestore = (userEmail: string, callback: (tests: any[]) => void) => {
+  if (typeof window === 'undefined' || !userEmail) return () => {};
+  try {
+    const db = getFirebaseFirestore();
+    if (!db) return () => {};
+    const cleanEmail = userEmail.toLowerCase().trim();
+    const testsQuery = query(collection(db, 'users', cleanEmail, 'tests'), orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(testsQuery, (snapshot) => {
+      const testsList: any[] = [];
+      snapshot.forEach(docSnap => {
+        testsList.push(docSnap.data());
+      });
+      callback(testsList);
+    }, (err) => {
+      console.warn("Firestore test history listener error:", err);
+    });
+    return unsubscribe;
+  } catch (e) {
+    console.warn("Firestore test history subscription error:", e);
     return () => {};
   }
 };

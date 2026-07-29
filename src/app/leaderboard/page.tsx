@@ -25,38 +25,26 @@ export default function LeaderboardPage() {
     setTimeout(() => setAddFeedback(null), 4000);
   };
 
-  // Compile real active accounts dynamically
-  const activeUser = user || {
-    name: 'Sahil Raj',
-    username: 'sahil24raj',
-    email: 'sahil.raj@gmail.com',
-    collegeName: 'Chandigarh University UP Campus',
-    department: 'AI ML',
-    xp: 780,
-    level: 'AI Apprentice',
-    streak: 5,
-    testsCompleted: 8,
-    isCurrentUser: true
-  };
-
   // Build combined directory with logged-in user + directory users (ONLY REAL REGISTERED ACCOUNTS)
   const allAccountsMap = new Map<string, any>();
   
-  // 1. Add all accounts from userDirectory first
+  // 1. Add all real accounts from userDirectory (fetched live from Cloud Firestore)
   userDirectory.forEach(u => {
-    const key = u.email ? u.email.toLowerCase() : u.username.toLowerCase();
-    allAccountsMap.set(key, {
-      ...u,
-      isCurrentUser: Boolean(user && user.email === u.email)
-    });
+    if (u && u.email) {
+      const key = u.email.toLowerCase().trim();
+      allAccountsMap.set(key, {
+        ...u,
+        isCurrentUser: Boolean(user && user.email.toLowerCase().trim() === key)
+      });
+    }
   });
 
-  // 2. Add or update currently active user
-  if (activeUser && activeUser.email) {
-    const key = activeUser.email.toLowerCase();
+  // 2. Ensure currently logged-in user is updated
+  if (user && user.email) {
+    const key = user.email.toLowerCase().trim();
     allAccountsMap.set(key, {
       ...(allAccountsMap.get(key) || {}),
-      ...activeUser,
+      ...user,
       isCurrentUser: true
     });
   }
@@ -66,13 +54,13 @@ export default function LeaderboardPage() {
   // Filter accounts based on selected tab
   let filteredEntries = [...allAccountsList];
 
-  if (tab === 'college' && activeUser.collegeName) {
+  if (tab === 'college' && user?.collegeName) {
     filteredEntries = filteredEntries.filter(
-      u => u.isCurrentUser || (u.collegeName && u.collegeName.toLowerCase() === activeUser.collegeName.toLowerCase())
+      u => u.isCurrentUser || (u.collegeName && u.collegeName.toLowerCase() === user.collegeName.toLowerCase())
     );
-  } else if (tab === 'department' && activeUser.department) {
+  } else if (tab === 'department' && user?.department) {
     filteredEntries = filteredEntries.filter(
-      u => u.isCurrentUser || (u.department && u.department.toLowerCase() === activeUser.department.toLowerCase())
+      u => u.isCurrentUser || (u.department && u.department.toLowerCase() === user.department.toLowerCase())
     );
   } else if (tab === 'friend') {
     filteredEntries = filteredEntries.filter(
@@ -278,8 +266,8 @@ export default function LeaderboardPage() {
           <span className="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
             <Shield className="w-4 h-4 text-cyber-blue" />
             {tab === 'all' && 'All Global Scholars'}
-            {tab === 'college' && `${activeUser.collegeName || 'College'} Scholars`}
-            {tab === 'department' && `${activeUser.department || 'Department'} Scholars`}
+            {tab === 'college' && `${user?.collegeName || 'College'} Scholars`}
+            {tab === 'department' && `${user?.department || 'Department'} Scholars`}
             {tab === 'friend' && 'Friends Leaderboard'}
             <span className="text-cyber-blue font-mono font-bold">({rankedLeaderboard.length})</span>
           </span>
