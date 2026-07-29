@@ -39,31 +39,27 @@ export default function LeaderboardPage() {
     isCurrentUser: true
   };
 
-  // Build combined directory with logged-in user + directory users (ONLY REAL USERS)
+  // Build combined directory with logged-in user + directory users (ONLY REAL REGISTERED ACCOUNTS)
   const allAccountsMap = new Map<string, any>();
   
-  // 1. Add active user
-  allAccountsMap.set(activeUser.username.toLowerCase(), {
-    ...activeUser,
-    isCurrentUser: true
+  // 1. Add all accounts from userDirectory first
+  userDirectory.forEach(u => {
+    const key = u.email ? u.email.toLowerCase() : u.username.toLowerCase();
+    allAccountsMap.set(key, {
+      ...u,
+      isCurrentUser: Boolean(user && user.email === u.email)
+    });
   });
 
-  // 2. Add all other logged-in accounts from device directory
-  userDirectory.forEach(u => {
-    const handle = u.username.toLowerCase();
-    if (!allAccountsMap.has(handle)) {
-      allAccountsMap.set(handle, {
-        ...u,
-        isCurrentUser: user?.email === u.email
-      });
-    } else if (user?.email === u.email) {
-      allAccountsMap.set(handle, {
-        ...allAccountsMap.get(handle),
-        ...u,
-        isCurrentUser: true
-      });
-    }
-  });
+  // 2. Add or update currently active user
+  if (activeUser && activeUser.email) {
+    const key = activeUser.email.toLowerCase();
+    allAccountsMap.set(key, {
+      ...(allAccountsMap.get(key) || {}),
+      ...activeUser,
+      isCurrentUser: true
+    });
+  }
 
   const allAccountsList = Array.from(allAccountsMap.values());
 

@@ -203,13 +203,38 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: `@${cleanHandle} is already in your friends leaderboard!` };
     }
 
+    // Check if user exists in userDirectory
+    let friendUser = userDirectory.find(u => u.username.toLowerCase() === cleanHandle);
+    
+    // If friend does not exist in local directory yet, create dynamic user entry for them
+    if (!friendUser) {
+      const friendlyName = cleanHandle.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+      friendUser = {
+        id: `usr_${cleanHandle}_${Date.now()}`,
+        name: friendlyName,
+        username: cleanHandle,
+        email: `${cleanHandle}@student.edu`,
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        collegeName: user?.collegeName || 'Partner University',
+        course: user?.course || 'B.Tech',
+        department: user?.department || 'Computer Science',
+        subjects: user?.subjects || [],
+        xp: 820,
+        level: 'Semester Warrior',
+        streak: 7,
+        testsCompleted: 6,
+        isProfileComplete: true
+      };
+      saveToDirectory(friendUser);
+    }
+
     const updated = [...customFriends, cleanHandle];
     setCustomFriends(updated);
     if (typeof window !== 'undefined') {
       localStorage.setItem('st_custom_friends', JSON.stringify(updated));
     }
 
-    return { success: true, message: `Added @${cleanHandle} to your Friends Leaderboard!` };
+    return { success: true, message: `Added @${cleanHandle} (${friendUser.name}) to your Friends Leaderboard!` };
   };
 
   const logout = () => {
