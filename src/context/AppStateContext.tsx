@@ -43,6 +43,7 @@ export interface AppState {
   testHistory: SavedTestResult[];
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
+  loginWithFirebaseUser: (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) => { success: boolean; isNewUser?: boolean; message?: string };
   loginWithGoogle: (customEmail?: string, customName?: string, customAvatar?: string) => { success: boolean; message?: string };
   updateProfile: (updatedData: Partial<User>) => void;
   addFriendByUsername: (username: string) => { success: boolean; message: string };
@@ -154,6 +155,74 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return updated;
     });
+  };
+
+  const loginWithFirebaseUser = (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): { success: boolean; isNewUser?: boolean; message?: string } => {
+    const email = fbUser.email ? fbUser.email.trim().toLowerCase() : `user_${fbUser.uid.slice(0, 8)}@gmail.com`;
+    let isNewUser = false;
+    let savedProfile: Partial<User> | null = null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        // Look up existing profile by email or uid
+        const emailKey = `st_profile_${email}`;
+        const savedAccount = localStorage.getItem(emailKey);
+        if (savedAccount) {
+          savedProfile = JSON.parse(savedAccount);
+        } else {
+          const dirFound = userDirectory.find(u => u.email.toLowerCase() === email);
+          if (dirFound) {
+            savedProfile = dirFound;
+          } else {
+            isNewUser = true;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const defaultUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+    const defaultName = fbUser.displayName || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    const loggedUser: User = {
+      id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
+      name: savedProfile?.name || defaultName,
+      username: savedProfile?.username || defaultUsername,
+      email: email,
+      avatar: fbUser.photoURL || savedProfile?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      collegeName: savedProfile?.collegeName || '',
+      course: savedProfile?.course || '',
+      department: savedProfile?.department || '',
+      subjects: savedProfile?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)'],
+      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 500,
+      level: savedProfile?.level || 'AI Scholar',
+      streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
+      testsCompleted: savedProfile?.testsCompleted || 0,
+      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
+    };
+
+    setUser(loggedUser);
+    saveToDirectory(loggedUser);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('st_user', JSON.stringify(loggedUser));
+      localStorage.setItem('st_saved_profile', JSON.stringify(loggedUser));
+      localStorage.setItem(`st_profile_${email}`, JSON.stringify(loggedUser));
+
+      // Load user-scoped history
+      const userHistoryKey = `st_history_${email}`;
+      const savedHistory = localStorage.getItem(userHistoryKey);
+      if (savedHistory) {
+        try {
+          setTestHistory(JSON.parse(savedHistory));
+        } catch (e) {
+          setTestHistory([]);
+        }
+      } else {
+        setTestHistory([]);
+      }
+    }
+
+    return { success: true, isNewUser };
   };
 
   const loginWithGoogle = (customEmail?: string, customName?: string, customAvatar?: string): { success: boolean; message?: string } => {
@@ -370,6 +439,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       testHistory,
       activeTest,
       activeTestAnswers,
+      loginWithFirebaseUser,
       loginWithGoogle,
       updateProfile,
       addFriendByUsername,
