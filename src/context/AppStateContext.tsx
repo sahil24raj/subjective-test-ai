@@ -43,7 +43,7 @@ export interface AppState {
   testHistory: SavedTestResult[];
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
-  loginWithGoogle: (customEmail?: string) => void;
+  loginWithGoogle: (customEmail?: string, customName?: string, customAvatar?: string) => { success: boolean; message?: string };
   updateProfile: (updatedData: Partial<User>) => void;
   addFriendByUsername: (username: string) => { success: boolean; message: string };
   logout: () => void;
@@ -88,15 +88,41 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return [];
   });
 
-  const [testHistory, setTestHistory] = useState<SavedTestResult[]>(() => {
+  // Load account-scoped test history
+  const [testHistory, setTestHistory] = useState<SavedTestResult[]>([]);
+
+  // Sync test history when user changes
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('st_history');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
+      if (user && user.email) {
+        try {
+          const userHistoryKey = `st_history_${user.email.toLowerCase()}`;
+          const savedHistory = localStorage.getItem(userHistoryKey);
+          if (savedHistory) {
+            setTestHistory(JSON.parse(savedHistory));
+          } else {
+            // Check legacy st_history if migrating default user
+            if (user.email.toLowerCase() === 'sahil.raj@gmail.com') {
+              const legacy = localStorage.getItem('st_history');
+              if (legacy) {
+                const parsed = JSON.parse(legacy);
+                setTestHistory(parsed);
+                localStorage.setItem(userHistoryKey, legacy);
+              } else {
+                setTestHistory([]);
+              }
+            } else {
+              setTestHistory([]);
+            }
+          }
+        } catch (e) {
+          setTestHistory([]);
+        }
+      } else {
+        setTestHistory([]);
+      }
     }
-    return [];
-  });
+  }, [user]);
 
   const [activeTest, setActiveTest] = useState<Test | null>(() => {
     if (typeof window !== 'undefined') {
@@ -121,7 +147,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Save account to global user directory
   const saveToDirectory = (userData: User) => {
     setUserDirectory(prev => {
-      const filtered = prev.filter(u => u.email !== userData.email && u.username !== userData.username);
+      const filtered = prev.filter(u => u.email.toLowerCase() !== userData.email.toLowerCase());
       const updated = [userData, ...filtered];
       if (typeof window !== 'undefined') {
         localStorage.setItem('st_user_directory', JSON.stringify(updated));
@@ -130,8 +156,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
-  const loginWithGoogle = (customEmail?: string) => {
+  const loginWithGoogle = (customEmail?: string, customName?: string, customAvatar?: string): { success: boolean; message?: string } => {
     const targetEmail = customEmail ? customEmail.trim().toLowerCase() : 'sahil.raj@gmail.com';
+
+    // Strict Email Format Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(targetEmail)) {
+      return { success: false, message: 'Please enter a valid Google email address (e.g. user@gmail.com).' };
+    }
 
     let savedProfile: Partial<User> | null = null;
 
@@ -156,22 +188,22 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const defaultUsername = targetEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-    const defaultName = defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const defaultName = customName || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
     const loggedUser: User = {
-      id: savedProfile?.id || `usr_${Date.now()}`,
+      id: savedProfile?.id || `usr_g_${Date.now()}`,
       name: savedProfile?.name || defaultName,
       username: savedProfile?.username || defaultUsername,
       email: targetEmail,
-      avatar: savedProfile?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      avatar: savedProfile?.avatar || customAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
       collegeName: savedProfile?.collegeName || '',
       course: savedProfile?.course || '',
       department: savedProfile?.department || '',
-      subjects: savedProfile?.subjects || [],
-      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 780,
-      level: savedProfile?.level || 'AI Apprentice',
-      streak: savedProfile?.streak !== undefined ? savedProfile.streak : 5,
-      testsCompleted: savedProfile?.testsCompleted || 1,
+      subjects: savedProfile?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)'],
+      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 500,
+      level: savedProfile?.level || 'AI Scholar',
+      streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
+      testsCompleted: savedProfile?.testsCompleted || 0,
       isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
     };
 
@@ -182,7 +214,22 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('st_user', JSON.stringify(loggedUser));
       localStorage.setItem('st_saved_profile', JSON.stringify(loggedUser));
       localStorage.setItem(`st_profile_${targetEmail}`, JSON.stringify(loggedUser));
+
+      // Load user-scoped history
+      const userHistoryKey = `st_history_${targetEmail}`;
+      const savedHistory = localStorage.getItem(userHistoryKey);
+      if (savedHistory) {
+        try {
+          setTestHistory(JSON.parse(savedHistory));
+        } catch (e) {
+          setTestHistory([]);
+        }
+      } else {
+        setTestHistory([]);
+      }
     }
+
+    return { success: true };
   };
 
   const updateProfile = (updatedData: Partial<User>) => {
@@ -235,7 +282,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const logout = () => {
     setUser(null);
-    // Note: We do NOT delete st_user from localStorage so all credentials & XP remain preserved when user logs back in!
+    setTestHistory([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('st_user');
+    }
   };
 
   // Start a new test session
@@ -256,7 +306,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('st_active_answers', JSON.stringify(updated));
   };
 
-  // Submit active test
+  // Submit active test (Account-scoped)
   const submitActiveTest = (answers: Record<string, string>, evaluations: QuestionEvaluation[]): SavedTestResult => {
     if (!activeTest) throw new Error('No active test session to submit');
 
@@ -282,10 +332,24 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       maxScore
     };
 
-    // Save history
+    // Save history scoped to current user email
     const updatedHistory = [result, ...testHistory];
     setTestHistory(updatedHistory);
-    localStorage.setItem('st_history', JSON.stringify(updatedHistory));
+
+    if (typeof window !== 'undefined') {
+      const emailKey = user?.email ? user.email.toLowerCase() : 'sahil.raj@gmail.com';
+      localStorage.setItem(`st_history_${emailKey}`, JSON.stringify(updatedHistory));
+      localStorage.setItem('st_history', JSON.stringify(updatedHistory)); // Fallback
+    }
+
+    // Award XP and increment tests completed for active user
+    if (user) {
+      const addedXP = Math.round((totalScore / (maxScore || 1)) * 100);
+      updateProfile({
+        xp: (user.xp || 0) + addedXP,
+        testsCompleted: (user.testsCompleted || 0) + 1
+      });
+    }
 
     return result;
   };

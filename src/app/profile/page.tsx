@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../../context/AppStateContext';
 import { User as UserIcon, Building2, GraduationCap, Zap, Flame, Shield, CheckCircle2, Edit3, Save, Sparkles, BookOpen, Award } from 'lucide-react';
+import { GoogleAuthModal } from '../../components/GoogleAuthModal';
 
 export default function ProfilePage() {
-  const { user, updateProfile, loginWithGoogle } = useAppState();
+  const { user, updateProfile } = useAppState();
 
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -81,11 +83,11 @@ export default function ProfilePage() {
             Sign in to Access Student Profile
           </h2>
           <p className="font-rajdhani text-sm text-slate-400 font-medium max-w-md mx-auto">
-            Build your unique academic username, track your PW/Byju's style level XP progression, and auto-fill exam generator details.
+            Build your unique academic profile, track your level XP progression, and auto-fill exam generator details.
           </p>
         </div>
         <button
-          onClick={() => loginWithGoogle()}
+          onClick={() => setShowAuthModal(true)}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -96,6 +98,8 @@ export default function ProfilePage() {
           </svg>
           Sign in with Google
         </button>
+
+        <GoogleAuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </div>
     );
   }
