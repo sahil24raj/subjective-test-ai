@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cpu, Menu, X, Clock, Terminal, Trophy, LogOut } from 'lucide-react';
+import { Cpu, Menu, X, Clock, Terminal, Trophy, LogOut, User as UserIcon } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
 
 export const Navbar: React.FC = () => {
@@ -15,6 +15,7 @@ export const Navbar: React.FC = () => {
     { href: '/generator', label: 'Test Builder', icon: Cpu },
     { href: '/history', label: 'Test History', icon: Clock },
     { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { href: '/profile', label: 'Profile', icon: UserIcon },
   ];
 
   const getLinkClass = (href: string) => {
@@ -54,17 +55,19 @@ export const Navbar: React.FC = () => {
             })}
           </div>
 
-          {/* Google Auth Button */}
+          {/* Google Auth Button / User Profile */}
           {user ? (
             <div className="flex items-center gap-2.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
-              <div className="w-6 h-6 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center font-bold text-[10px] text-cyber-blue uppercase font-mono">
-                {user.name.charAt(0)}
-              </div>
-              <span className="font-mono text-xs font-bold text-slate-200">{user.name}</span>
+              <Link href="/profile" className="flex items-center gap-2 group cursor-pointer">
+                <div className="w-6 h-6 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center font-bold text-[10px] text-cyber-blue uppercase font-mono group-hover:border-cyber-blue transition-colors">
+                  {user.name.charAt(0)}
+                </div>
+                <span className="font-mono text-xs font-bold text-slate-200 group-hover:text-cyber-blue transition-colors">{user.name}</span>
+              </Link>
               <button
                 onClick={logout}
                 title="Sign out"
-                className="p-1 text-slate-500 hover:text-cyber-pink transition-colors cursor-pointer"
+                className="p-1 text-slate-500 hover:text-cyber-pink transition-colors cursor-pointer border-l border-slate-800 pl-2 ml-1"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -119,12 +122,12 @@ export const Navbar: React.FC = () => {
           <div className="pt-2 border-t border-slate-800">
             {user ? (
               <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-3 py-2">
-                <div className="flex items-center gap-2">
+                <Link href="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center font-bold text-[10px] text-cyber-blue uppercase font-mono">
                     {user.name.charAt(0)}
                   </div>
                   <span className="font-mono text-xs font-bold text-slate-200">{user.name}</span>
-                </div>
+                </Link>
                 <button
                   onClick={logout}
                   className="font-mono text-xs text-cyber-pink font-bold uppercase"

@@ -6,8 +6,16 @@ import { QuestionEvaluation } from '../lib/ai';
 
 export interface User {
   name: string;
+  username: string;
   email: string;
   avatar: string;
+  collegeName: string;
+  course: string;
+  department: string;
+  xp: number;
+  level: string;
+  streak: number;
+  isProfileComplete?: boolean;
 }
 
 export interface SavedTestResult {
@@ -31,6 +39,7 @@ export interface AppState {
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
   loginWithGoogle: () => void;
+  updateProfile: (updatedData: Partial<User>) => void;
   logout: () => void;
   startNewTest: (test: Test) => void;
   saveAnswerDraft: (questionId: string, answerText: string) => void;
@@ -82,13 +91,35 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const loginWithGoogle = () => {
+    // Read saved college info if user previously filled it on generator page
+    const savedCollege = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_collegeName')) || 'IIT Delhi';
+    const savedCourse = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_course')) || 'B.Tech CSE';
+    const savedDept = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_subject')) || 'Computer Science';
+
     const mockUser: User = {
       name: 'Sahil Raj',
+      username: 'sahil_raj24',
       email: 'sahil.raj@gmail.com',
-      avatar: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      collegeName: savedCollege,
+      course: savedCourse,
+      department: savedDept,
+      xp: 780,
+      level: 'AI Apprentice',
+      streak: 5,
+      isProfileComplete: false
     };
     setUser(mockUser);
     localStorage.setItem('st_user', JSON.stringify(mockUser));
+  };
+
+  const updateProfile = (updatedData: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updatedData };
+      localStorage.setItem('st_user', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const logout = () => {
@@ -163,6 +194,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       activeTest,
       activeTestAnswers,
       loginWithGoogle,
+      updateProfile,
       logout,
       startNewTest,
       saveAnswerDraft,

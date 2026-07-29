@@ -9,7 +9,7 @@ import { Cpu, Settings2, Sparkles, Terminal, Upload, RefreshCw, CheckCircle2, La
 function GeneratorForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { startNewTest } = useAppState();
+  const { startNewTest, user } = useAppState();
 
   // URL query pre-population
   const queryTopic = searchParams.get('topic') || '';
@@ -37,22 +37,28 @@ function GeneratorForm() {
     'Finalizing exam room environment...'
   ];
 
-  // Load saved details on mount
+  // Load saved details / user profile on mount
   useEffect(() => {
-    try {
-      const savedCollege = localStorage.getItem('study_buddy_collegeName');
-      const savedCourse = localStorage.getItem('study_buddy_course');
-      const savedSubject = localStorage.getItem('study_buddy_subject');
-      const savedTopic = localStorage.getItem('study_buddy_topic');
+    if (user) {
+      if (user.collegeName) setCollegeName(user.collegeName);
+      if (user.course) setCourse(user.course);
+      if (user.department) setSubject(user.department);
+    } else {
+      try {
+        const savedCollege = localStorage.getItem('study_buddy_collegeName');
+        const savedCourse = localStorage.getItem('study_buddy_course');
+        const savedSubject = localStorage.getItem('study_buddy_subject');
+        const savedTopic = localStorage.getItem('study_buddy_topic');
 
-      if (savedCollege) setCollegeName(savedCollege);
-      if (savedCourse) setCourse(savedCourse);
-      if (savedSubject) setSubject(savedSubject);
-      if (!queryTopic && savedTopic) setTopic(savedTopic);
-    } catch (e) {
-      console.error('Failed to load saved config from localStorage', e);
+        if (savedCollege) setCollegeName(savedCollege);
+        if (savedCourse) setCourse(savedCourse);
+        if (savedSubject) setSubject(savedSubject);
+        if (!queryTopic && savedTopic) setTopic(savedTopic);
+      } catch (e) {
+        console.error('Failed to load saved config from localStorage', e);
+      }
     }
-  }, [queryTopic]);
+  }, [user, queryTopic]);
 
   // Save details when inputs change
   const handleCollegeChange = (val: string) => {
