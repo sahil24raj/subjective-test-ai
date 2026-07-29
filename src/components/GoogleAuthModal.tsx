@@ -63,7 +63,6 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
       onSuccess(res);
     } catch (err: any) {
       if (err.message === 'REDIRECT_INITIATED') {
-        // Page will reload — show redirecting state
         setLoading(false);
         setRedirecting(true);
         return;
@@ -126,25 +125,25 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
 
   // ─── Shared Styles ───
   const inputStyle: React.CSSProperties = {
-    width: '100%', height: '44px', padding: '0 14px',
-    borderRadius: '10px', fontSize: '14px', color: '#e2e8f0',
+    width: '100%', height: '40px', padding: '0 12px',
+    borderRadius: '10px', fontSize: '13px', color: '#e2e8f0',
     backgroundColor: 'rgba(255,255,255,0.05)',
     border: '1px solid rgba(255,255,255,0.12)',
     outline: 'none', fontFamily: "'Inter', system-ui, sans-serif",
     transition: 'border-color 0.2s',
   };
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '12px', fontWeight: 500,
-    color: '#94a3b8', marginBottom: '6px',
+    display: 'block', fontSize: '11px', fontWeight: 600,
+    color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px',
     fontFamily: "'Inter', system-ui, sans-serif",
   };
   const primaryBtnStyle: React.CSSProperties = {
-    width: '100%', height: '44px', borderRadius: '10px',
-    fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+    width: '100%', height: '42px', borderRadius: '10px',
+    fontSize: '14px', fontWeight: 700, cursor: 'pointer',
     background: 'linear-gradient(135deg, #00f0ff 0%, #6366f1 100%)',
     color: '#000', border: 'none',
     fontFamily: "'Inter', system-ui, sans-serif",
-    boxShadow: '0 4px 15px rgba(0,240,255,0.2)',
+    boxShadow: '0 4px 15px rgba(0,240,255,0.25)',
     transition: 'opacity 0.2s',
   };
 
@@ -152,69 +151,91 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
+        position: 'fixed', inset: 0, zIndex: 99999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '16px',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(2, 5, 18, 0.85)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        overflowY: 'auto',
       }}
     >
       <div
         style={{
-          width: '100%', maxWidth: '400px',
-          borderRadius: '20px', overflow: 'hidden',
-          backgroundColor: '#0c1230',
-          border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
+          width: '100%', maxWidth: '420px',
+          maxHeight: '90vh', overflowY: 'auto',
+          borderRadius: '24px',
+          backgroundColor: '#080d26',
+          border: '1px solid rgba(0, 240, 255, 0.25)',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.15)',
+          position: 'relative',
+          margin: 'auto',
         }}
       >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute', top: '16px', right: '16px', zIndex: 10,
+            width: '32px', height: '32px', borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#94a3b8', fontSize: '18px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'background-color 0.2s, color 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#94a3b8'; }}
+        >
+          ×
+        </button>
+
         {/* ─── Header ─── */}
-        <div style={{ padding: '32px 32px 8px', textAlign: 'center' }}>
+        <div style={{ padding: '28px 24px 12px', textAlign: 'center' }}>
           <div style={{
-            width: 48, height: 48, borderRadius: 14, margin: '0 auto 20px',
+            width: 44, height: 44, borderRadius: 14, margin: '0 auto 14px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'linear-gradient(135deg, #00f0ff, #8b5cf6)',
-            boxShadow: '0 4px 20px rgba(0,240,255,0.3)',
+            boxShadow: '0 4px 20px rgba(0,240,255,0.35)',
           }}>
-            <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" width="22" height="22" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <h2 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: 0, fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {screen === 'onboarding' ? 'Complete your profile' : screen === 'email-register' ? 'Create account' : 'Welcome back'}
+          <h2 style={{ fontSize: 19, fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Inter', system-ui, sans-serif" }}>
+            {screen === 'onboarding' ? 'Academic Profile Setup' : screen === 'email-register' ? 'Create Account' : 'Sign In to Subjective Test AI'}
           </h2>
-          <p style={{ fontSize: 14, color: '#64748b', margin: '6px 0 0', fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {screen === 'onboarding' ? 'Set up your academic details' : 'Sign in to Subjective Test AI'}
+          <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0', fontFamily: "'Inter', system-ui, sans-serif" }}>
+            {screen === 'onboarding' ? 'Configure your university details for AI test builder' : 'Real SaaS Account Authentication'}
           </p>
         </div>
 
         {/* ─── Body ─── */}
-        <div style={{ padding: '20px 32px 28px' }}>
+        <div style={{ padding: '12px 24px 24px' }}>
 
           {/* Error */}
           {error && (
             <div style={{
-              marginBottom: 16, padding: '10px 14px', borderRadius: 10,
-              backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
-              color: '#fca5a5', fontSize: 13, fontFamily: "'Inter', system-ui, sans-serif",
+              marginBottom: 14, padding: '10px 12px', borderRadius: 10,
+              backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+              color: '#fca5a5', fontSize: 12, fontFamily: "'Inter', system-ui, sans-serif",
               display: 'flex', alignItems: 'flex-start', gap: 8,
             }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>⚠</span>
+              <span style={{ fontSize: 14, lineHeight: 1 }}>⚠</span>
               <span>{error}</span>
             </div>
           )}
 
           {/* Loading / Redirecting */}
           {(loading || redirecting) ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: 14 }}>
               <div style={{
-                width: 36, height: 36, borderRadius: '50%',
+                width: 34, height: 34, borderRadius: '50%',
                 border: '3px solid #1e293b', borderTopColor: '#00f0ff',
                 animation: 'spin 0.8s linear infinite',
               }} />
-              <p style={{ fontSize: 13, color: '#64748b', fontFamily: "'Inter', system-ui, sans-serif" }}>
-                {redirecting ? 'Redirecting to Google...' : 'Authenticating...'}
+              <p style={{ fontSize: 13, color: '#00f0ff', fontWeight: 600, fontFamily: "'Inter', system-ui, sans-serif" }}>
+                {redirecting ? 'Redirecting to Google OAuth...' : 'Connecting to Firebase Authentication...'}
               </p>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
@@ -226,15 +247,15 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
               <button
                 onClick={handleGoogleSignIn}
                 style={{
-                  width: '100%', height: 46, borderRadius: 10,
+                  width: '100%', height: 44, borderRadius: 12,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                   backgroundColor: '#fff', color: '#1f2937', border: 'none',
-                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   fontFamily: "'Inter', system-ui, sans-serif",
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                  transition: 'background-color 0.2s',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                  transition: 'transform 0.15s, background-color 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
               >
                 <GoogleLogo />
@@ -242,51 +263,51 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
               </button>
 
               {/* Divider */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
-                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                <span style={{ fontSize: 11, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Inter', system-ui, sans-serif" }}>or</span>
-                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '2px 0' }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <span style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'Inter', system-ui, sans-serif" }}>or</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
               </div>
 
               {/* Email Button */}
               <button
                 onClick={() => { setError(''); setScreen('email-login'); }}
                 style={{
-                  width: '100%', height: 46, borderRadius: 10,
+                  width: '100%', height: 44, borderRadius: 12,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  backgroundColor: 'transparent', color: '#cbd5e1',
+                  backgroundColor: 'rgba(255,255,255,0.03)', color: '#cbd5e1',
                   border: '1px solid rgba(255,255,255,0.12)',
-                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   fontFamily: "'Inter', system-ui, sans-serif",
                   transition: 'border-color 0.2s, background-color 0.2s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)'; e.currentTarget.style.backgroundColor = 'rgba(0,240,255,0.03)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,240,255,0.4)'; e.currentTarget.style.backgroundColor = 'rgba(0,240,255,0.06)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'; }}
               >
                 ✉ Continue with Email
               </button>
 
               {/* Register link */}
-              <div style={{ textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ textAlign: 'center', paddingTop: 6 }}>
                 <button
                   onClick={() => { setError(''); setScreen('email-register'); }}
-                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
+                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
                 >
-                  No account? <span style={{ fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>Create one</span>
+                  Don&apos;t have an account? <span style={{ fontWeight: 700, textDecoration: 'underline' }}>Register now</span>
                 </button>
               </div>
             </div>
 
           ) : screen === 'email-login' || screen === 'email-register' ? (
             /* ─── Email Auth ─── */
-            <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {screen === 'email-register' && (
                 <div>
                   <label style={labelStyle}>Full Name</label>
                   <input
                     type="text" required value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder="e.g. Sahil Raj"
                     style={inputStyle}
                     onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
                     onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
@@ -294,11 +315,11 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 </div>
               )}
               <div>
-                <label style={labelStyle}>Email address</label>
+                <label style={labelStyle}>Firebase Email</label>
                 <input
                   type="email" required value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="user@gmail.com"
                   style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
@@ -316,15 +337,15 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 />
               </div>
               <button type="submit" style={primaryBtnStyle}>
-                {screen === 'email-register' ? 'Create Account' : 'Sign In'}
+                {screen === 'email-register' ? 'Create Firebase Account' : 'Sign In with Firebase'}
               </button>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', paddingTop: 4 }}>
                 <button
                   type="button"
                   onClick={() => { setError(''); setScreen(screen === 'email-login' ? 'email-register' : 'email-login'); }}
                   style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
                 >
-                  {screen === 'email-login' ? 'Need an account? Register' : 'Have an account? Sign in'}
+                  {screen === 'email-login' ? 'Need an account? Register' : 'Already have an account? Sign in'}
                 </button>
               </div>
               <div style={{ textAlign: 'center' }}>
@@ -333,21 +354,21 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                   onClick={() => { setError(''); setScreen('main'); }}
                   style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
                 >
-                  ← All sign-in options
+                  ← Back to main sign-in
                 </button>
               </div>
             </form>
 
           ) : (
             /* ─── Onboarding ─── */
-            <form onSubmit={handleOnboarding} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleOnboarding} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
               <div style={{
-                padding: '10px 14px', borderRadius: 10,
-                backgroundColor: 'rgba(0,240,255,0.06)', border: '1px solid rgba(0,240,255,0.15)',
-                color: '#00f0ff', fontSize: 13, fontFamily: "'Inter', system-ui, sans-serif",
-                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', borderRadius: 8,
+                backgroundColor: 'rgba(0,240,255,0.08)', border: '1px solid rgba(0,240,255,0.2)',
+                color: '#00f0ff', fontSize: 12, fontWeight: 600, fontFamily: "'Inter', system-ui, sans-serif",
+                display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <span style={{ fontSize: 16 }}>✓</span> Signed in successfully!
+                <span>✓</span> Verified Firebase Account
               </div>
               <div>
                 <label style={labelStyle}>College / University</label>
@@ -376,21 +397,22 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
               <div>
                 <label style={labelStyle}>Subjects (comma separated)</label>
                 <input type="text" value={subjectsStr} onChange={e => setSubjectsStr(e.target.value)}
-                  placeholder="OS, DBMS, DSA" style={inputStyle}
+                  placeholder="OS, DBMS, DSA, Computer Networks" style={inputStyle}
                   onFocus={e => e.target.style.borderColor = 'rgba(0,240,255,0.5)'}
                   onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
               </div>
-              <button type="submit" style={primaryBtnStyle}>Complete Setup</button>
+              <button type="submit" style={{ ...primaryBtnStyle, marginTop: 4 }}>Complete Setup & Save</button>
             </form>
           )}
         </div>
 
         {/* ─── Footer ─── */}
         <div style={{
-          padding: '0 32px 20px',
+          padding: '0 24px 18px',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontSize: 11, color: '#334155', fontFamily: "'Inter', system-ui, sans-serif",
+          fontSize: 11, color: '#475569', fontFamily: "'Inter', system-ui, sans-serif",
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: 12,
         }}>
           <span>🔒 Secured by Firebase</span>
           <span>study-buddy-a26c5</span>
