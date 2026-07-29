@@ -32,20 +32,35 @@ export interface AppState {
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [testHistory, setTestHistory] = useState<SavedTestResult[]>([]);
-  const [activeTest, setActiveTest] = useState<Test | null>(null);
-  const [activeTestAnswers, setActiveTestAnswers] = useState<Record<string, string>>({});
+  const [testHistory, setTestHistory] = useState<SavedTestResult[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_history');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
 
-  // Load from LocalStorage on mount
-  useEffect(() => {
-    const savedHistory = localStorage.getItem('st_history');
-    const savedActiveTest = localStorage.getItem('st_active_test');
-    const savedActiveAnswers = localStorage.getItem('st_active_answers');
+  const [activeTest, setActiveTest] = useState<Test | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_active_test');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
 
-    if (savedHistory) setTestHistory(JSON.parse(savedHistory));
-    if (savedActiveTest) setActiveTest(JSON.parse(savedActiveTest));
-    if (savedActiveAnswers) setActiveTestAnswers(JSON.parse(savedActiveAnswers));
-  }, []);
+  const [activeTestAnswers, setActiveTestAnswers] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_active_answers');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
 
   // Start a new test session
   const startNewTest = (test: Test) => {
