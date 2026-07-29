@@ -8,6 +8,7 @@ export default function ProfilePage() {
   const { user, updateProfile, loginWithGoogle } = useAppState();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [collegeName, setCollegeName] = useState('');
   const [course, setCourse] = useState('');
@@ -19,6 +20,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
+      setName(user.name || '');
       setUsername(user.username || '');
       setCollegeName(user.collegeName || '');
       setCourse(user.course || '');
@@ -46,6 +48,7 @@ export default function ProfilePage() {
     if (!user) return;
 
     updateProfile({
+      name: name.trim() || user.name,
       username: username.trim() || user.username,
       collegeName: collegeName.trim() || user.collegeName,
       course: course.trim() || user.course,
@@ -82,7 +85,7 @@ export default function ProfilePage() {
           </p>
         </div>
         <button
-          onClick={loginWithGoogle}
+          onClick={() => loginWithGoogle()}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -196,6 +199,21 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Display Name */}
+            <div className="flex flex-col space-y-1.5">
+              <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Full Display Name
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Sahil Raj"
+                className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none font-mono"
+              />
+            </div>
+
             {/* Username */}
             <div className="flex flex-col space-y-1.5">
               <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -206,7 +224,7 @@ export default function ProfilePage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. sahil_raj24"
+                placeholder="e.g. sahil24raj"
                 className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none font-mono"
               />
             </div>

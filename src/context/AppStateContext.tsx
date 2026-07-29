@@ -5,6 +5,7 @@ import { Question, Test } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
 
 export interface User {
+  id?: string;
   name: string;
   username: string;
   email: string;
@@ -16,6 +17,7 @@ export interface User {
   xp: number;
   level: string;
   streak: number;
+  testsCompleted?: number;
   isProfileComplete?: boolean;
 }
 
@@ -36,11 +38,14 @@ export interface SavedTestResult {
 
 export interface AppState {
   user: User | null;
+  userDirectory: User[];
+  customFriends: string[];
   testHistory: SavedTestResult[];
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
-  loginWithGoogle: () => void;
+  loginWithGoogle: (customEmail?: string) => void;
   updateProfile: (updatedData: Partial<User>) => void;
+  addFriendByUsername: (username: string) => { success: boolean; message: string };
   logout: () => void;
   startNewTest: (test: Test) => void;
   saveAnswerDraft: (questionId: string, answerText: string) => void;
@@ -59,6 +64,28 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (e) {}
     }
     return null;
+  });
+
+  // Multi-user directory state
+  const [userDirectory, setUserDirectory] = useState<User[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_user_directory');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Custom added friends list (by username)
+  const [customFriends, setCustomFriends] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_custom_friends');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
   });
 
   const [testHistory, setTestHistory] = useState<SavedTestResult[]>(() => {
@@ -91,68 +118,98 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return {};
   });
 
-  const loginWithGoogle = () => {
-    let savedProfile: Partial<User> | null = null;
-    if (typeof window !== 'undefined') {
+  // Save account to global user directory
+  const saveToDirectory = (userData: User) => {
+    setUserDirectory(prev => {
+      const filtered = prev.filter(u => u.email !== userData.email && u.username !== userData.username);
+      const updated = [userData, ...filtered];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('st_user_directory', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  const loginWithGoogle = (customEmail?: string) => {
+    const targetEmail = customEmail || 'sahil.raj@gmail.com';
+
+    // Check if account already exists in userDirectory
+    const existingInDir = userDirectory.find(u => u.email === targetEmail);
+
+    let savedProfile: Partial<User> | null = existingInDir || null;
+    if (!savedProfile && typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
+        const saved = localStorage.getItem(`st_profile_${targetEmail}`);
         if (saved) savedProfile = JSON.parse(saved);
       } catch (e) {}
     }
 
-    // Read saved college/course/dept without hardcoded fallback overrides
-    const savedCollege = savedProfile?.collegeName || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_collegeName') : '') || '';
-    const savedCourse = savedProfile?.course || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_course') : '') || '';
-    const savedDept = savedProfile?.department || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_subject') : '') || '';
+    const defaultUsername = targetEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+    const defaultName = defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-    // Read saved subjects from localStorage if available
-    let savedSubjects: string[] = savedProfile?.subjects || [];
-    try {
-      const stored = localStorage.getItem('study_buddy_user_subjects');
-      if (stored && savedSubjects.length === 0) {
-        savedSubjects = JSON.parse(stored);
-      }
-    } catch (e) {}
-
-    const mockUser: User = {
-      name: savedProfile?.name || 'Sahil Raj',
-      username: savedProfile?.username || 'sahil24raj',
-      email: savedProfile?.email || 'sahil.raj@gmail.com',
+    const loggedUser: User = {
+      id: savedProfile?.id || `usr_${Date.now()}`,
+      name: savedProfile?.name || defaultName,
+      username: savedProfile?.username || defaultUsername,
+      email: targetEmail,
       avatar: savedProfile?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-      collegeName: savedCollege,
-      course: savedCourse,
-      department: savedDept,
-      subjects: savedSubjects,
+      collegeName: savedProfile?.collegeName || '',
+      course: savedProfile?.course || '',
+      department: savedProfile?.department || '',
+      subjects: savedProfile?.subjects || [],
       xp: savedProfile?.xp !== undefined ? savedProfile.xp : 780,
       level: savedProfile?.level || 'AI Apprentice',
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 5,
-      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedCollege)
+      testsCompleted: savedProfile?.testsCompleted || testHistory.length || 1,
+      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
     };
-    setUser(mockUser);
-    localStorage.setItem('st_user', JSON.stringify(mockUser));
-    localStorage.setItem('st_saved_profile', JSON.stringify(mockUser));
+
+    setUser(loggedUser);
+    saveToDirectory(loggedUser);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('st_user', JSON.stringify(loggedUser));
+      localStorage.setItem('st_saved_profile', JSON.stringify(loggedUser));
+      localStorage.setItem(`st_profile_${targetEmail}`, JSON.stringify(loggedUser));
+    }
   };
 
   const updateProfile = (updatedData: Partial<User>) => {
     setUser(prev => {
-      const current = prev || {
-        name: 'Sahil Raj',
-        username: 'sahil24raj',
-        email: 'sahil.raj@gmail.com',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
-        collegeName: '',
-        course: '',
-        department: '',
-        subjects: [],
-        xp: 780,
-        level: 'AI Apprentice',
-        streak: 5
-      };
-      const updated = { ...current, ...updatedData };
-      localStorage.setItem('st_user', JSON.stringify(updated));
-      localStorage.setItem('st_saved_profile', JSON.stringify(updated));
+      if (!prev) return null;
+      const updated = { ...prev, ...updatedData };
+
+      // Also update in directory
+      saveToDirectory(updated);
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('st_user', JSON.stringify(updated));
+        localStorage.setItem('st_saved_profile', JSON.stringify(updated));
+        localStorage.setItem(`st_profile_${updated.email}`, JSON.stringify(updated));
+      }
       return updated;
     });
+  };
+
+  const addFriendByUsername = (targetUsername: string): { success: boolean; message: string } => {
+    const cleanHandle = targetUsername.trim().toLowerCase().replace(/^@/, '');
+    if (!cleanHandle) return { success: false, message: 'Please enter a valid username' };
+
+    if (user && user.username.toLowerCase() === cleanHandle) {
+      return { success: false, message: 'You cannot add yourself as a friend!' };
+    }
+
+    if (customFriends.includes(cleanHandle)) {
+      return { success: false, message: `@${cleanHandle} is already in your friends leaderboard!` };
+    }
+
+    const updated = [...customFriends, cleanHandle];
+    setCustomFriends(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('st_custom_friends', JSON.stringify(updated));
+    }
+
+    return { success: true, message: `Added @${cleanHandle} to your Friends Leaderboard!` };
   };
 
   const logout = () => {
@@ -223,11 +280,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return (
     <AppStateContext.Provider value={{
       user,
+      userDirectory,
+      customFriends,
       testHistory,
       activeTest,
       activeTestAnswers,
       loginWithGoogle,
       updateProfile,
+      addFriendByUsername,
       logout,
       startNewTest,
       saveAnswerDraft,

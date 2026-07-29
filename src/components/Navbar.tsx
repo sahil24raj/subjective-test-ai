@@ -3,13 +3,15 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cpu, Menu, X, Clock, Terminal, Trophy, LogOut, User as UserIcon } from 'lucide-react';
+import { Cpu, Menu, X, Clock, Terminal, Trophy, LogOut, User as UserIcon, Users, PlusCircle } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, loginWithGoogle, logout } = useAppState();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [customEmailInput, setCustomEmailInput] = useState('');
+  const { user, userDirectory, loginWithGoogle, logout } = useAppState();
 
   const navLinks = [
     { href: '/generator', label: 'Test Builder', icon: Cpu },
@@ -24,6 +26,16 @@ export const Navbar: React.FC = () => {
     return isActive 
       ? baseClass + "text-cyber-blue border border-cyber-blue/30 bg-cyber-blue/10 neon-text-blue"
       : baseClass + "text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 border border-transparent";
+  };
+
+  const handleCustomLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = customEmailInput.trim();
+    if (cleanEmail) {
+      loginWithGoogle(cleanEmail);
+      setShowAuthModal(false);
+      setCustomEmailInput('');
+    }
   };
 
   return (
@@ -62,19 +74,29 @@ export const Navbar: React.FC = () => {
                 <div className="w-6 h-6 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center font-bold text-[10px] text-cyber-blue uppercase font-mono group-hover:border-cyber-blue transition-colors">
                   {user.name.charAt(0)}
                 </div>
-                <span className="font-mono text-xs font-bold text-slate-200 group-hover:text-cyber-blue transition-colors">{user.name}</span>
+                <div className="flex flex-col text-left">
+                  <span className="font-mono text-xs font-bold text-slate-200 group-hover:text-cyber-blue transition-colors">{user.name}</span>
+                  <span className="font-mono text-[9px] text-cyber-blue">@{user.username}</span>
+                </div>
               </Link>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                title="Switch Account"
+                className="p-1 text-slate-500 hover:text-cyber-teal transition-colors cursor-pointer border-l border-slate-800 pl-2 ml-1"
+              >
+                <Users className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={logout}
                 title="Sign out"
-                className="p-1 text-slate-500 hover:text-cyber-pink transition-colors cursor-pointer border-l border-slate-800 pl-2 ml-1"
+                className="p-1 text-slate-500 hover:text-cyber-pink transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
             <button
-              onClick={loginWithGoogle}
+              onClick={() => setShowAuthModal(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer shadow-[0_0_15px_rgba(255,255,255,0.08)]"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -138,7 +160,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => {
-                  loginWithGoogle();
+                  setShowAuthModal(true);
                   setIsOpen(false);
                 }}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider"
@@ -152,6 +174,111 @@ export const Navbar: React.FC = () => {
                 Sign in with Google
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Account Sign-In & Switcher Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-[#050816]/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#080d26] border border-cyber-blue/40 rounded-3xl p-6 space-y-6 shadow-[0_0_40px_rgba(0,240,255,0.2)] relative">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-cyber-blue" />
+                <h3 className="font-orbitron font-extrabold text-sm text-white uppercase tracking-wider">
+                  Account Switcher / Google Auth
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Switch Accounts List */}
+            {userDirectory.length > 0 && (
+              <div className="space-y-2">
+                <span className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Saved Scholar Accounts on this device
+                </span>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {userDirectory.map((usr) => (
+                    <div
+                      key={usr.email}
+                      onClick={() => {
+                        loginWithGoogle(usr.email);
+                        setShowAuthModal(false);
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
+                        user?.email === usr.email
+                          ? 'border-cyber-blue bg-cyber-blue/15 shadow-[0_0_15px_rgba(0,240,255,0.15)]'
+                          : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-cyber-blue/20 border border-cyber-blue/50 flex items-center justify-center font-bold text-xs text-cyber-blue font-mono uppercase">
+                          {usr.name.charAt(0)}
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="font-mono text-xs font-bold text-slate-200">
+                            {usr.name} <span className="text-cyber-blue">(@{usr.username})</span>
+                          </span>
+                          <span className="font-rajdhani text-[11px] text-slate-400">{usr.email} • {usr.xp} XP</span>
+                        </div>
+                      </div>
+                      {user?.email === usr.email && (
+                        <span className="font-orbitron font-extrabold text-[9px] text-cyber-teal border border-cyber-teal/40 px-2 py-0.5 rounded-full uppercase">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sign in with Custom Email Form */}
+            <form onSubmit={handleCustomLoginSubmit} className="space-y-3 pt-2 border-t border-slate-800">
+              <span className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest block">
+                Log in as New Account / Email
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  value={customEmailInput}
+                  onChange={(e) => setCustomEmailInput(e.target.value)}
+                  placeholder="e.g. rahul.sharma@gmail.com"
+                  className="flex-1 bg-[#050816] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none font-mono"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider cursor-pointer shadow-[0_0_15px_rgba(0,240,255,0.2)]"
+                >
+                  Sign In
+                </button>
+              </div>
+            </form>
+
+            <button
+              onClick={() => {
+                loginWithGoogle('sahil.raj@gmail.com');
+                setShowAuthModal(false);
+              }}
+              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z" />
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+                <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.4-.7-.6-1.5-.6-2.3z" />
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+              </svg>
+              Quick Google Sign In (Default User)
+            </button>
+
           </div>
         </div>
       )}
