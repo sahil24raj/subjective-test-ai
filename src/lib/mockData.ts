@@ -249,23 +249,13 @@ export const BADGES: Badge[] = [
 // 4. Leaderboard Data
 export const MOCK_LEADERBOARDS: Record<'college' | 'department' | 'friend', LeaderboardEntry[]> = {
   college: [
-    { rank: 1, name: 'Siddharth R. (You)', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true },
-    { rank: 2, name: 'Aarav Mehta', avatar: 'cyber_avatar_2', xp: 750, level: 'AI Apprentice', streak: 12, testsCompleted: 7 },
-    { rank: 3, name: 'Neha Sharma', avatar: 'cyber_avatar_3', xp: 620, level: 'Knowledge Explorer', streak: 4, testsCompleted: 5 },
-    { rank: 4, name: 'Vikram Aditya', avatar: 'cyber_avatar_4', xp: 590, level: 'Knowledge Explorer', streak: 8, testsCompleted: 6 },
-    { rank: 5, name: 'Priya Iyer', avatar: 'cyber_avatar_5', xp: 510, level: 'Knowledge Explorer', streak: 0, testsCompleted: 4 },
-    { rank: 6, name: 'Kabir Kapoor', avatar: 'cyber_avatar_6', xp: 480, level: 'Beginner Scholar', streak: 3, testsCompleted: 3 }
+    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
   ],
   department: [
-    { rank: 1, name: 'Aarav Mehta', avatar: 'cyber_avatar_2', xp: 750, level: 'AI Apprentice', streak: 12, testsCompleted: 7 },
-    { rank: 2, name: 'Siddharth R. (You)', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true },
-    { rank: 3, name: 'Neha Sharma', avatar: 'cyber_avatar_3', xp: 620, level: 'Knowledge Explorer', streak: 4, testsCompleted: 5 },
-    { rank: 4, name: 'Priya Iyer', avatar: 'cyber_avatar_5', xp: 510, level: 'Knowledge Explorer', streak: 0, testsCompleted: 4 }
+    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
   ],
   friend: [
-    { rank: 1, name: 'Siddharth R. (You)', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true },
-    { rank: 2, name: 'Neha Sharma', avatar: 'cyber_avatar_3', xp: 620, level: 'Knowledge Explorer', streak: 4, testsCompleted: 5 },
-    { rank: 3, name: 'Rahul Sen', avatar: 'cyber_avatar_7', xp: 350, level: 'Beginner Scholar', streak: 2, testsCompleted: 2 }
+    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
   ]
 };
 

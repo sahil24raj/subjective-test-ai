@@ -14,14 +14,32 @@ export default function ProfilePage() {
   const [department, setDepartment] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [newSubjectInput, setNewSubjectInput] = useState('');
+
   useEffect(() => {
     if (user) {
       setUsername(user.username || '');
       setCollegeName(user.collegeName || '');
       setCourse(user.course || '');
       setDepartment(user.department || '');
+      setSubjects(user.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)', 'Computer Networks']);
     }
   }, [user]);
+
+  const handleAddSubject = () => {
+    const trimmed = newSubjectInput.trim();
+    if (trimmed && !subjects.includes(trimmed)) {
+      const updated = [...subjects, trimmed];
+      setSubjects(updated);
+      setNewSubjectInput('');
+    }
+  };
+
+  const handleRemoveSubject = (index: number) => {
+    const updated = subjects.filter((_, idx) => idx !== index);
+    setSubjects(updated);
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +50,7 @@ export default function ProfilePage() {
       collegeName: collegeName.trim() || user.collegeName,
       course: course.trim() || user.course,
       department: department.trim() || user.department,
+      subjects: subjects,
       isProfileComplete: true
     });
 
@@ -40,6 +59,7 @@ export default function ProfilePage() {
       if (collegeName.trim()) localStorage.setItem('study_buddy_collegeName', collegeName.trim());
       if (course.trim()) localStorage.setItem('study_buddy_course', course.trim());
       if (department.trim()) localStorage.setItem('study_buddy_subject', department.trim());
+      localStorage.setItem('study_buddy_user_subjects', JSON.stringify(subjects));
     } catch (e) {}
 
     setIsEditing(false);
@@ -221,19 +241,52 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Department / Primary Subject */}
-            <div className="flex flex-col space-y-1.5">
-              <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Department / Core Subject
+            {/* Semester Subjects Section in Form */}
+            <div className="md:col-span-2 flex flex-col space-y-3 pt-2 border-t border-slate-800">
+              <label className="font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-cyber-blue" /> Current Semester Subjects (8-10 Subjects)
               </label>
-              <input
-                type="text"
-                required
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="e.g. Computer Science"
-                className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none font-mono"
-              />
+              <p className="font-rajdhani text-[11px] text-slate-400 font-medium">
+                Add all your semester subjects here. They will appear as quick one-tap subject chips when generating tests!
+              </p>
+
+              {/* Add Subject Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSubjectInput}
+                  onChange={(e) => setNewSubjectInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubject(); } }}
+                  placeholder="e.g. Database Management Systems (DBMS)"
+                  className="flex-1 bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSubject}
+                  className="px-4 py-2.5 rounded-xl bg-cyber-blue/15 border border-cyber-blue/40 text-cyber-blue font-orbitron font-bold text-xs uppercase tracking-wider hover:bg-cyber-blue/25 cursor-pointer"
+                >
+                  + Add Subject
+                </button>
+              </div>
+
+              {/* Active Subjects Chips */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {subjects.map((sub, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyber-blue/10 border border-cyber-blue/30 text-cyber-blue font-mono text-xs font-bold"
+                  >
+                    {sub}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSubject(idx)}
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-cyber-pink hover:bg-cyber-pink/20 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -253,6 +306,34 @@ export default function ProfilePage() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Semester Subjects Display Card (When Not Editing) */}
+      {!isEditing && (
+        <div className="cyber-glass rounded-3xl border border-slate-800 p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="font-orbitron font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-cyber-blue" /> Saved Semester Subjects ({user.subjects?.length || subjects.length})
+            </h3>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="font-mono text-[10px] text-cyber-blue font-bold uppercase hover:underline cursor-pointer"
+            >
+              + Manage Subjects
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5">
+            {(user.subjects && user.subjects.length > 0 ? user.subjects : subjects).map((sub, idx) => (
+              <span
+                key={idx}
+                className="px-3.5 py-2 rounded-xl border border-slate-800 bg-[#060a22] text-slate-200 font-mono text-xs font-bold hover:border-cyber-blue/40 transition-colors"
+              >
+                📘 {sub}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
 
     </div>

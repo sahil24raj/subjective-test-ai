@@ -12,6 +12,7 @@ export interface User {
   collegeName: string;
   course: string;
   department: string;
+  subjects: string[];
   xp: number;
   level: string;
   streak: number;
@@ -96,6 +97,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const savedCourse = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_course')) || 'B.Tech CSE';
     const savedDept = (typeof window !== 'undefined' && localStorage.getItem('study_buddy_subject')) || 'Computer Science';
 
+    // Read saved subjects from localStorage if available
+    let savedSubjects: string[] = ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)', 'Computer Networks', 'Software Engineering'];
+    try {
+      const stored = localStorage.getItem('study_buddy_user_subjects');
+      if (stored) savedSubjects = JSON.parse(stored);
+    } catch (e) {}
+
     const mockUser: User = {
       name: 'Sahil Raj',
       username: 'sahil_raj24',
@@ -104,6 +112,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       collegeName: savedCollege,
       course: savedCourse,
       department: savedDept,
+      subjects: savedSubjects,
       xp: 780,
       level: 'AI Apprentice',
       streak: 5,

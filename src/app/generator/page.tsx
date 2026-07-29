@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppState } from '../../context/AppStateContext';
 import { AIHelper } from '../../lib/ai';
@@ -252,7 +253,7 @@ function GeneratorForm() {
 
             <div className="grid grid-cols-2 gap-4">
               {/* Subject Name */}
-              <div className="flex flex-col space-y-1.5">
+              <div className="flex flex-col space-y-1.5 col-span-2 md:col-span-1">
                 <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
                   Subject Name
                 </label>
@@ -267,7 +268,7 @@ function GeneratorForm() {
               </div>
 
               {/* Topic Name */}
-              <div className="flex flex-col space-y-1.5">
+              <div className="flex flex-col space-y-1.5 col-span-2 md:col-span-1">
                 <label className="font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-widest">
                   Specific Topic / Chapter
                 </label>
@@ -279,6 +280,35 @@ function GeneratorForm() {
                   placeholder="e.g. CPU Scheduling or All"
                   className="bg-[#090f2b] border border-slate-800 focus:border-cyber-blue/50 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none placeholder:text-slate-700 font-mono"
                 />
+              </div>
+            </div>
+
+            {/* Quick Semester Subjects Selector Chips */}
+            <div className="flex flex-col space-y-2 pt-1">
+              <span className="font-rajdhani text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>📘 Quick Select Saved Semester Subject:</span>
+                <Link href="/profile" className="text-[10px] text-cyber-blue hover:underline">
+                  Edit Subjects in Profile →
+                </Link>
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {(user?.subjects && user.subjects.length > 0
+                  ? user.subjects
+                  : ['Operating Systems', 'DBMS', 'DSA', 'Computer Networks', 'Software Engineering']
+                ).map((sub, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSubjectChange(sub)}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer ${
+                      subject.toLowerCase() === sub.toLowerCase()
+                        ? 'bg-cyber-blue/20 border-cyber-blue text-cyber-blue shadow-[0_0_10px_rgba(0,240,255,0.3)]'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    + {sub}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
