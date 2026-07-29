@@ -34,7 +34,16 @@ export default function ExamHall() {
   // If no active test is found in context, redirect back to generator
   useEffect(() => {
     if (isSubmitting) return;
-    if (!activeTest || activeTest.id !== testId) {
+    if (!activeTest) {
+      // Check localStorage for activeTest before giving up and redirecting
+      try {
+        const saved = localStorage.getItem('st_active_test');
+        if (saved) return;
+      } catch (e) {}
+      router.push('/generator');
+      return;
+    }
+    if (activeTest.id !== testId) {
       router.push('/generator');
       return;
     }
@@ -130,11 +139,11 @@ export default function ExamHall() {
         answersToEvaluate
       );
       
-      // Submit in global state
+      // Submit in global state (saves result to history)
       const result = submitActiveTest(answersToEvaluate, evaluationResults);
       
-      // Redirect to results page
-      router.push(`/results/${result.id}`);
+      // Smooth navigation transition: Navigate to results page immediately
+      router.replace(`/results/${result.id}`);
     } catch (e) {
       console.error('Submission failed', e);
       alert('AI Evaluation encountered an error. Retrying evaluation...');
