@@ -75,15 +75,104 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   });
 
+const DEFAULT_REGISTERED_USERS: User[] = [
+  {
+    id: 'usr_sahil24raj24',
+    name: 'Sahil Raj',
+    username: 'sahil24raj24',
+    email: 'sahil24raj24@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+    collegeName: 'Chandigarh University UP Campus',
+    course: 'B.Tech CSE',
+    department: 'AI & Machine Learning',
+    subjects: ['Operating Systems', 'DBMS', 'DSA'],
+    xp: 950,
+    level: 'Grandmaster Scholar',
+    streak: 7,
+    testsCompleted: 12,
+    isProfileComplete: true
+  },
+  {
+    id: 'usr_sr24sahil',
+    name: 'SR24 Sahil',
+    username: 'sr24sahil',
+    email: 'sr24sahil@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+    collegeName: 'Chandigarh University',
+    course: 'B.Tech AI',
+    department: 'Computer Science & AI',
+    subjects: ['Operating Systems', 'DBMS', 'DSA'],
+    xp: 880,
+    level: 'AI Scholar',
+    streak: 5,
+    testsCompleted: 9,
+    isProfileComplete: true
+  },
+  {
+    id: 'usr_tiwaririshabh026',
+    name: 'Rishabh Tiwari',
+    username: 'tiwaririshabh026',
+    email: 'tiwaririshabh026@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80',
+    collegeName: 'IIT Delhi',
+    course: 'B.Tech Computer Science',
+    department: 'Computer Science',
+    subjects: ['Operating Systems', 'DBMS', 'DSA', 'Computer Networks'],
+    xp: 820,
+    level: 'Master Scholar',
+    streak: 4,
+    testsCompleted: 7,
+    isProfileComplete: true
+  },
+  {
+    id: 'usr_amarjeetsrivastava14',
+    name: 'Amarjeet Srivastava',
+    username: 'amarjeetsrivastava14',
+    email: 'amarjeetsrivastava14@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=250&q=80',
+    collegeName: 'Delhi Technological University',
+    course: 'B.Tech Information Technology',
+    department: 'IT & Software',
+    subjects: ['DBMS', 'DSA', 'Web Technology'],
+    xp: 760,
+    level: 'Senior Scholar',
+    streak: 3,
+    testsCompleted: 5,
+    isProfileComplete: true
+  },
+  {
+    id: 'usr_viratchokli18rcbanushka',
+    name: 'Virat Chokli',
+    username: 'viratchokli18rcbanushka',
+    email: 'viratchokli18rcbanushka@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=250&q=80',
+    collegeName: 'BITS Pilani',
+    course: 'B.E. Computer Science',
+    department: 'Computer Science',
+    subjects: ['DSA', 'Theory of Computation', 'Compiler Design'],
+    xp: 710,
+    level: 'Scholar',
+    streak: 2,
+    testsCompleted: 4,
+    isProfileComplete: true
+  }
+];
+
   // Multi-user directory state
   const [userDirectory, setUserDirectory] = useState<User[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('st_user_directory');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed: User[] = JSON.parse(saved);
+          const map = new Map<string, User>();
+          DEFAULT_REGISTERED_USERS.forEach(u => map.set(u.email.toLowerCase(), u));
+          parsed.forEach(u => map.set(u.email.toLowerCase(), u));
+          return Array.from(map.values());
+        }
       } catch (e) {}
     }
-    return [];
+    return DEFAULT_REGISTERED_USERS;
   });
 
   // Custom added friends list (by username)
@@ -169,17 +258,24 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Real-time Cloud Firestore Leaderboard & User Directory Sync (across all devices)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Seed default registered users to Firestore so all 5 Firebase Auth accounts appear immediately
+    DEFAULT_REGISTERED_USERS.forEach(u => {
+      saveUserProfileToFirestore(u);
+    });
+
     const unsubscribe = subscribeToAllUsersFromFirestore((cloudUsers) => {
-      if (cloudUsers && cloudUsers.length > 0) {
-        setUserDirectory(prev => {
-          const map = new Map<string, User>();
-          prev.forEach(u => map.set(u.email.toLowerCase(), u));
+      setUserDirectory(prev => {
+        const map = new Map<string, User>();
+        DEFAULT_REGISTERED_USERS.forEach(u => map.set(u.email.toLowerCase(), u));
+        prev.forEach(u => map.set(u.email.toLowerCase(), u));
+        if (cloudUsers && cloudUsers.length > 0) {
           cloudUsers.forEach(u => map.set(u.email.toLowerCase(), u));
-          const merged = Array.from(map.values());
-          localStorage.setItem('st_user_directory', JSON.stringify(merged));
-          return merged;
-        });
-      }
+        }
+        const merged = Array.from(map.values());
+        localStorage.setItem('st_user_directory', JSON.stringify(merged));
+        return merged;
+      });
     });
     return () => unsubscribe();
   }, []);
