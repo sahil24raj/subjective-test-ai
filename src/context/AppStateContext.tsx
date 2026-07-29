@@ -96,9 +96,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTestHistory(updatedHistory);
     localStorage.setItem('st_history', JSON.stringify(updatedHistory));
 
-    // Clear active session
-    clearActiveTest();
-
     return result;
   };
 

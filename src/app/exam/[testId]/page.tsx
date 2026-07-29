@@ -98,7 +98,14 @@ export default function ExamHall() {
     );
   }
 
-  if (!activeTest) return null;
+  if (!activeTest) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Terminal className="w-8 h-8 text-cyber-blue animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase">Connecting to examination room...</span>
+      </div>
+    );
+  }
 
   const currentQuestion = activeTest.questions[activeQIndex];
   const currentAnswer = activeTestAnswers[currentQuestion.id] || '';
