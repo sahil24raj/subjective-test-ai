@@ -4,6 +4,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Question, Test } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
 
+export interface User {
+  name: string;
+  email: string;
+  avatar: string;
+}
+
 export interface SavedTestResult {
   id: string;
   subjectId: string;
@@ -20,9 +26,12 @@ export interface SavedTestResult {
 }
 
 export interface AppState {
+  user: User | null;
   testHistory: SavedTestResult[];
   activeTest: Test | null;
   activeTestAnswers: Record<string, string>;
+  loginWithGoogle: () => void;
+  logout: () => void;
   startNewTest: (test: Test) => void;
   saveAnswerDraft: (questionId: string, answerText: string) => void;
   submitActiveTest: (answers: Record<string, string>, evaluations: QuestionEvaluation[]) => SavedTestResult;
@@ -32,6 +41,16 @@ export interface AppState {
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('st_user');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
+
   const [testHistory, setTestHistory] = useState<SavedTestResult[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -61,6 +80,21 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     return {};
   });
+
+  const loginWithGoogle = () => {
+    const mockUser: User = {
+      name: 'Sahil Raj',
+      email: 'sahil.raj@gmail.com',
+      avatar: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
+    };
+    setUser(mockUser);
+    localStorage.setItem('st_user', JSON.stringify(mockUser));
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('st_user');
+  };
 
   // Start a new test session
   const startNewTest = (test: Test) => {
@@ -124,9 +158,12 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <AppStateContext.Provider value={{
+      user,
       testHistory,
       activeTest,
       activeTestAnswers,
+      loginWithGoogle,
+      logout,
       startNewTest,
       saveAnswerDraft,
       submitActiveTest,
