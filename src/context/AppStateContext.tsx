@@ -54,7 +54,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('st_user');
+        const saved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
         if (saved) return JSON.parse(saved);
       } catch (e) {}
     }
@@ -92,51 +92,65 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const loginWithGoogle = () => {
-    let existingUser: User | null = null;
+    let savedProfile: Partial<User> | null = null;
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('st_user');
-        if (saved) existingUser = JSON.parse(saved);
+        const saved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
+        if (saved) savedProfile = JSON.parse(saved);
       } catch (e) {}
     }
 
-    // Read saved college info if user previously filled it on generator page
-    const savedCollege = existingUser?.collegeName || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_collegeName')) || 'IIT Delhi';
-    const savedCourse = existingUser?.course || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_course')) || 'B.Tech CSE';
-    const savedDept = existingUser?.department || (typeof window !== 'undefined' && localStorage.getItem('study_buddy_subject')) || 'Computer Science';
+    // Read saved college/course/dept without hardcoded fallback overrides
+    const savedCollege = savedProfile?.collegeName || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_collegeName') : '') || '';
+    const savedCourse = savedProfile?.course || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_course') : '') || '';
+    const savedDept = savedProfile?.department || (typeof window !== 'undefined' ? localStorage.getItem('study_buddy_subject') : '') || '';
 
     // Read saved subjects from localStorage if available
-    let savedSubjects: string[] = existingUser?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)', 'Computer Networks', 'Software Engineering'];
+    let savedSubjects: string[] = savedProfile?.subjects || [];
     try {
       const stored = localStorage.getItem('study_buddy_user_subjects');
-      if (stored && (!existingUser || !existingUser.subjects || existingUser.subjects.length === 0)) {
+      if (stored && savedSubjects.length === 0) {
         savedSubjects = JSON.parse(stored);
       }
     } catch (e) {}
 
     const mockUser: User = {
-      name: existingUser?.name || 'Sahil Raj',
-      username: existingUser?.username || 'sahil_raj24',
-      email: existingUser?.email || 'sahil.raj@gmail.com',
-      avatar: existingUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      name: savedProfile?.name || 'Sahil Raj',
+      username: savedProfile?.username || 'sahil24raj',
+      email: savedProfile?.email || 'sahil.raj@gmail.com',
+      avatar: savedProfile?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
       collegeName: savedCollege,
       course: savedCourse,
       department: savedDept,
       subjects: savedSubjects,
-      xp: existingUser?.xp !== undefined ? existingUser.xp : 780,
-      level: existingUser?.level || 'AI Apprentice',
-      streak: existingUser?.streak !== undefined ? existingUser.streak : 5,
-      isProfileComplete: existingUser?.isProfileComplete ?? true
+      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 780,
+      level: savedProfile?.level || 'AI Apprentice',
+      streak: savedProfile?.streak !== undefined ? savedProfile.streak : 5,
+      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedCollege)
     };
     setUser(mockUser);
     localStorage.setItem('st_user', JSON.stringify(mockUser));
+    localStorage.setItem('st_saved_profile', JSON.stringify(mockUser));
   };
 
   const updateProfile = (updatedData: Partial<User>) => {
     setUser(prev => {
-      if (!prev) return null;
-      const updated = { ...prev, ...updatedData };
+      const current = prev || {
+        name: 'Sahil Raj',
+        username: 'sahil24raj',
+        email: 'sahil.raj@gmail.com',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+        collegeName: '',
+        course: '',
+        department: '',
+        subjects: [],
+        xp: 780,
+        level: 'AI Apprentice',
+        streak: 5
+      };
+      const updated = { ...current, ...updatedData };
       localStorage.setItem('st_user', JSON.stringify(updated));
+      localStorage.setItem('st_saved_profile', JSON.stringify(updated));
       return updated;
     });
   };
