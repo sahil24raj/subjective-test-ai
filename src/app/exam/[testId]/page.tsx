@@ -118,19 +118,26 @@ export default function ExamHall() {
   const executeSubmission = async () => {
     setIsSubmitting(true);
     try {
+      if (!activeTest) {
+        throw new Error('No active test session to evaluate.');
+      }
+      const questionsToEvaluate = [...activeTest.questions];
+      const answersToEvaluate = { ...activeTestAnswers };
+
       // Evaluate answers using AIHelper
       const evaluationResults = await AIHelper.evaluateAnswers(
-        activeTest.questions,
-        activeTestAnswers
+        questionsToEvaluate,
+        answersToEvaluate
       );
       
-      // Submit in global state (this clears active test, returns result payload)
-      const result = submitActiveTest(activeTestAnswers, evaluationResults);
+      // Submit in global state
+      const result = submitActiveTest(answersToEvaluate, evaluationResults);
       
-      // Redirect to results
+      // Redirect to results page
       router.push(`/results/${result.id}`);
     } catch (e) {
       console.error('Submission failed', e);
+      alert('AI Evaluation encountered an error. Retrying evaluation...');
       setIsSubmitting(false);
     }
   };

@@ -18,9 +18,21 @@ export default function ResultsPage() {
   const [activeQIdx, setActiveQIdx] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Retrieve test from history
+  // Retrieve test from history or localStorage
   useEffect(() => {
-    const found = testHistory.find(h => h.id === testId);
+    let found = testHistory.find(h => h.id === testId);
+    if (!found) {
+      try {
+        const savedHistory = localStorage.getItem('st_history');
+        if (savedHistory) {
+          const parsedHistory: SavedTestResult[] = JSON.parse(savedHistory);
+          found = parsedHistory.find(h => h.id === testId);
+        }
+      } catch (e) {
+        console.error('Failed to parse history from localStorage', e);
+      }
+    }
+
     if (found) {
       setResult(found);
       
