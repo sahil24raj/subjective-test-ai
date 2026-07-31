@@ -1,13 +1,32 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Trophy, Flame, Zap, Shield, Users, Building2, GraduationCap, CheckCircle2, UserPlus, Search, Check } from 'lucide-react';
+import { 
+  Trophy, 
+  Flame, 
+  Zap, 
+  Shield, 
+  Users, 
+  Building2, 
+  GraduationCap, 
+  CheckCircle2, 
+  UserPlus, 
+  Search, 
+  Check, 
+  Crown, 
+  Sparkles,
+  ArrowUpRight,
+  UserCheck
+} from 'lucide-react';
 import { useAppState } from '../../context/AppStateContext';
+import { DEFAULT_SCHOLARS, getLevelFromXp } from '../../lib/mockData';
+import { GoogleAuthModal } from '../../components/GoogleAuthModal';
 
 export default function LeaderboardPage() {
   const { user, userDirectory, customFriends, addFriendByUsername } = useAppState();
   const [tab, setTab] = useState<'all' | 'college' | 'department' | 'friend'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   // Friend Add state
   const [friendInput, setFriendInput] = useState('');
@@ -25,46 +44,85 @@ export default function LeaderboardPage() {
     setTimeout(() => setAddFeedback(null), 4000);
   };
 
-  // Build combined directory with logged-in user + directory users (ONLY REAL REGISTERED ACCOUNTS)
+  const handleQuickAddFriend = (username: string) => {
+    const res = addFriendByUsername(username);
+    setAddFeedback(res);
+    setTimeout(() => setAddFeedback(null), 4000);
+  };
+
+  // Build combined directory with DEFAULT SCHOLARS + Cloud Firestore Users + Active Logged-In User
   const allAccountsMap = new Map<string, any>();
-  
-  // 1. Add all real accounts from userDirectory (fetched live from Cloud Firestore)
-  userDirectory.forEach(u => {
-    if (u && u.email) {
-      const key = u.email.toLowerCase().trim();
+
+  // 1. Seed with Default SaaS Scholars Community
+  DEFAULT_SCHOLARS.forEach(sch => {
+    if (sch && sch.email) {
+      const key = sch.email.toLowerCase().trim();
+      const levelTitle = getLevelFromXp(sch.xp || 500).name;
       allAccountsMap.set(key, {
-        ...u,
-        isCurrentUser: Boolean(user && user.email.toLowerCase().trim() === key)
+        ...sch,
+        level: levelTitle,
+        isCurrentUser: false
       });
     }
   });
 
-  // 2. Ensure currently logged-in user is updated
-  if (user && user.email) {
-    const key = user.email.toLowerCase().trim();
+  // 2. Add real registered accounts from Cloud Firestore userDirectory
+  userDirectory.forEach(u => {
+    if (u && (u.email || u.username)) {
+      const key = (u.email || u.username).toLowerCase().trim();
+      const levelTitle = getLevelFromXp(u.xp || 500).name;
+      allAccountsMap.set(key, {
+        ...u,
+        username: u.username || u.email?.split('@')[0] || 'scholar',
+        name: u.name || u.username || 'Student Scholar',
+        level: levelTitle,
+        isCurrentUser: Boolean(user && (user.email.toLowerCase().trim() === key || user.username?.toLowerCase() === u.username?.toLowerCase()))
+      });
+    }
+  });
+
+  // 3. Ensure currently logged-in user is ALWAYS inserted with exact active profile details
+  if (user && (user.email || user.username)) {
+    const key = (user.email || user.username).toLowerCase().trim();
+    const existing = allAccountsMap.get(key) || {};
+    const levelTitle = getLevelFromXp(user.xp || 500).name;
     allAccountsMap.set(key, {
-      ...(allAccountsMap.get(key) || {}),
+      ...existing,
       ...user,
+      username: user.username || user.email.split('@')[0],
+      name: user.name || 'Logged-In Scholar',
+      level: levelTitle,
       isCurrentUser: true
     });
   }
 
   const allAccountsList = Array.from(allAccountsMap.values());
 
+  // Compute Overall Global Rank for Current Logged-In User
+  const globalRanked = [...allAccountsList]
+    .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+    .map((item, idx) => ({ ...item, rank: idx + 1 }));
+
+  const currentUserStanding = globalRanked.find(u => u.isCurrentUser);
+
   // Filter accounts based on selected tab
   let filteredEntries = [...allAccountsList];
 
-  if (tab === 'college' && user?.collegeName) {
-    filteredEntries = filteredEntries.filter(
-      u => u.isCurrentUser || (u.collegeName && u.collegeName.toLowerCase() === user.collegeName.toLowerCase())
-    );
-  } else if (tab === 'department' && user?.department) {
-    filteredEntries = filteredEntries.filter(
-      u => u.isCurrentUser || (u.department && u.department.toLowerCase() === user.department.toLowerCase())
-    );
+  if (tab === 'college') {
+    if (user?.collegeName) {
+      filteredEntries = filteredEntries.filter(
+        u => u.isCurrentUser || (u.collegeName && u.collegeName.toLowerCase() === user.collegeName.toLowerCase())
+      );
+    }
+  } else if (tab === 'department') {
+    if (user?.department) {
+      filteredEntries = filteredEntries.filter(
+        u => u.isCurrentUser || (u.department && u.department.toLowerCase() === user.department.toLowerCase())
+      );
+    }
   } else if (tab === 'friend') {
     filteredEntries = filteredEntries.filter(
-      u => u.isCurrentUser || customFriends.includes(u.username.toLowerCase())
+      u => u.isCurrentUser || (u.username && customFriends.includes(u.username.toLowerCase()))
     );
   }
 
@@ -72,14 +130,17 @@ export default function LeaderboardPage() {
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase().replace(/^@/, '');
     filteredEntries = filteredEntries.filter(
-      u => u.username.toLowerCase().includes(q) || u.name.toLowerCase().includes(q) || (u.collegeName && u.collegeName.toLowerCase().includes(q))
+      u => (u.username && u.username.toLowerCase().includes(q)) || 
+           (u.name && u.name.toLowerCase().includes(q)) || 
+           (u.collegeName && u.collegeName.toLowerCase().includes(q)) ||
+           (u.department && u.department.toLowerCase().includes(q))
     );
   }
 
   // Sort by XP descending
   filteredEntries.sort((a, b) => (b.xp || 0) - (a.xp || 0));
 
-  // Assign ranked positions
+  // Assign ranked positions for current view
   const rankedLeaderboard = filteredEntries.map((item, idx) => ({
     ...item,
     rank: idx + 1
@@ -95,11 +156,14 @@ export default function LeaderboardPage() {
             <Trophy className="w-6 h-6 text-cyber-blue animate-pulse" />
           </div>
           <div>
-            <h1 className="font-orbitron font-black text-2xl text-white uppercase tracking-wider">
+            <h1 className="font-orbitron font-black text-2xl text-white uppercase tracking-wider flex items-center gap-2">
               Academic Scholar Leaderboard
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-cyber-blue/40 bg-cyber-blue/10 text-cyber-blue font-bold">
+                LIVE SAAS SYNC
+              </span>
             </h1>
             <p className="font-rajdhani text-xs text-slate-400 font-semibold tracking-wide">
-              Realtime Scholar Ranks • Filter by All, College, Dept, or Friends
+              Realtime University Rankings • Tracks Every Logged-In Student Account Live
             </p>
           </div>
         </div>
@@ -149,16 +213,96 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* Add Friend Component (Visible on Friends tab or Header) */}
+      {/* Logged-In User Highlight Standing Banner */}
+      {user ? (
+        <div className="cyber-glass rounded-2xl border border-cyber-blue/40 p-5 bg-gradient-to-r from-cyber-blue/10 via-[#060c28] to-cyber-purple/10 flex flex-col md:flex-row items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,240,255,0.15)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyber-blue/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <img
+                src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                alt={user.name}
+                className="w-14 h-14 rounded-full border-2 border-cyber-blue object-cover shadow-lg"
+              />
+              <div className="absolute -bottom-1 -right-1 bg-cyber-teal text-slate-950 font-orbitron font-black text-[10px] px-1.5 py-0.5 rounded-full border border-slate-900 shadow">
+                YOU
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-orbitron font-black text-base text-white uppercase tracking-wider">
+                  {user.name}
+                </h3>
+                <span className="font-mono text-xs text-cyber-blue font-bold">
+                  @{user.username}
+                </span>
+                <CheckCircle2 className="w-4 h-4 text-cyber-teal" />
+              </div>
+              <p className="font-rajdhani text-xs text-slate-300 font-semibold flex items-center gap-2 mt-0.5">
+                <span>{user.collegeName || 'University Scholar'}</span>
+                <span>•</span>
+                <span>{user.department || 'Computer Science'}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 w-full md:w-auto justify-between md:justify-end">
+            <div className="text-center">
+              <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Global Rank</span>
+              <span className="font-orbitron font-black text-lg text-amber-400 flex items-center gap-1 justify-center">
+                <Crown className="w-4 h-4 text-amber-400" /> #{currentUserStanding?.rank || 1}
+              </span>
+            </div>
+
+            <div className="text-center">
+              <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Scholar Level</span>
+              <span className="font-orbitron font-bold text-xs text-cyber-teal mt-0.5 block">
+                {currentUserStanding?.level || 'AI Scholar'}
+              </span>
+            </div>
+
+            <div className="text-center">
+              <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total XP</span>
+              <span className="font-mono font-black text-sm text-cyber-blue flex items-center gap-1 justify-center mt-0.5">
+                <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {user.xp || 500} XP
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="cyber-glass rounded-2xl border border-cyber-purple/40 p-5 bg-gradient-to-r from-cyber-purple/10 to-cyber-blue/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-cyber-blue animate-pulse" />
+            <div>
+              <h3 className="font-orbitron font-bold text-xs text-white uppercase tracking-wider">
+                Claim Your Student Rank on the Global SaaS Leaderboard!
+              </h3>
+              <p className="font-rajdhani text-xs text-slate-400 font-medium">
+                Log in with your Google or University Account to show your @username and compete with top scholars.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(0,240,255,0.3)]"
+          >
+            Sign In & Show My ID
+          </button>
+        </div>
+      )}
+
+      {/* Add Friend Component */}
       <div className="cyber-glass rounded-2xl border border-slate-800 p-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <UserPlus className="w-5 h-5 text-cyber-teal" />
           <div>
             <h3 className="font-orbitron font-bold text-xs text-white uppercase tracking-wider">
-              Add Friend by Username
+              Add Friend by Username (@handle)
             </h3>
             <p className="font-rajdhani text-[11px] text-slate-400 font-medium">
-              Enter any student's unique handle (e.g. <span className="text-cyber-blue">@rahul_cse</span>) to track them on your Friends Leaderboard!
+              Enter any student's handle (e.g. <span className="text-cyber-blue">@aarav_ai</span> or <span className="text-cyber-blue">@priya_code</span>) to add them to your Friends Leaderboard!
             </p>
           </div>
         </div>
@@ -170,7 +314,7 @@ export default function LeaderboardPage() {
               type="text"
               value={friendInput}
               onChange={(e) => setFriendInput(e.target.value)}
-              placeholder="friend_username"
+              placeholder="username"
               className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/50 rounded-xl pl-7 pr-3 py-2 text-xs text-slate-200 focus:outline-none font-mono"
             />
           </div>
@@ -194,7 +338,7 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Top Podiums */}
+      {/* Top 3 Podiums */}
       {rankedLeaderboard.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           {rankedLeaderboard.slice(0, 3).map((entry, idx) => {
@@ -214,10 +358,13 @@ export default function LeaderboardPage() {
 
             return (
               <div
-                key={entry.username}
-                className={`cyber-glass rounded-2xl border p-6 flex flex-col items-center text-center space-y-4 relative ${badgeColor}`}
+                key={entry.email || entry.username || idx}
+                className={`cyber-glass rounded-2xl border p-6 flex flex-col items-center text-center space-y-4 relative ${badgeColor} ${
+                  entry.isCurrentUser ? 'ring-2 ring-cyber-blue shadow-[0_0_30px_rgba(0,240,255,0.3)]' : ''
+                }`}
               >
-                <div className="absolute top-3 right-3 font-orbitron font-extrabold text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-current">
+                <div className="absolute top-3 right-3 font-orbitron font-extrabold text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-current flex items-center gap-1">
+                  {isGold && <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />}
                   {rankLabel}
                 </div>
 
@@ -233,24 +380,32 @@ export default function LeaderboardPage() {
                 </div>
 
                 <div>
-                  <h3 className="font-mono font-bold text-sm text-white flex items-center gap-1.5 justify-center">
-                    @{entry.username} <span className="text-slate-400 text-xs">({entry.name})</span>
-                    {entry.isCurrentUser && <CheckCircle2 className="w-4 h-4 text-cyber-teal" />}
+                  <h3 className="font-mono font-bold text-sm text-white flex items-center gap-1.5 justify-center flex-wrap">
+                    @{entry.username}
+                    <span className="text-slate-400 text-xs">({entry.name})</span>
+                    {entry.isCurrentUser && (
+                      <span className="bg-cyber-blue/20 text-cyber-blue text-[10px] font-orbitron font-extrabold px-1.5 py-0.5 rounded border border-cyber-blue/40">
+                        YOU
+                      </span>
+                    )}
                   </h3>
-                  <span className="font-rajdhani text-xs text-slate-400 font-semibold">{entry.level || 'AI Scholar'}</span>
+                  <span className="font-rajdhani text-xs text-slate-300 font-bold block mt-0.5">{entry.level}</span>
+                  <span className="font-rajdhani text-[11px] text-slate-400 font-medium block">
+                    {entry.collegeName || 'University Scholar'}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 w-full pt-2 border-t border-white/10 text-xs">
                   <div className="flex flex-col items-center">
                     <span className="font-rajdhani text-[10px] text-slate-400 uppercase font-bold">Total XP</span>
                     <span className="font-mono font-black text-cyber-blue flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> {entry.xp || 780}
+                      <Zap className="w-3 h-3 fill-cyber-blue" /> {entry.xp || 500}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">
                     <span className="font-rajdhani text-[10px] text-slate-400 uppercase font-bold">Streak</span>
                     <span className="font-mono font-black text-cyber-pink flex items-center gap-1">
-                      <Flame className="w-3 h-3" /> {entry.streak || 5}d
+                      <Flame className="w-3 h-3 fill-cyber-pink" /> {entry.streak || 1}d
                     </span>
                   </div>
                 </div>
@@ -265,7 +420,7 @@ export default function LeaderboardPage() {
         <div className="px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/40">
           <span className="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
             <Shield className="w-4 h-4 text-cyber-blue" />
-            {tab === 'all' && 'All Global Scholars'}
+            {tab === 'all' && 'All Registered SaaS Scholars'}
             {tab === 'college' && `${user?.collegeName || 'College'} Scholars`}
             {tab === 'department' && `${user?.department || 'Department'} Scholars`}
             {tab === 'friend' && 'Friends Leaderboard'}
@@ -278,64 +433,112 @@ export default function LeaderboardPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, handle or college..."
+              placeholder="Search by name, handle, college..."
               className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/50 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none font-mono"
             />
           </div>
         </div>
 
-        <div className="divide-y divide-slate-800/60">
-          {rankedLeaderboard.map((entry) => {
-            const isSelf = entry.isCurrentUser;
-            return (
-              <div
-                key={entry.username}
-                className={`px-6 py-4 flex items-center justify-between transition-colors ${
-                  isSelf ? 'bg-cyber-blue/10 border-l-4 border-l-cyber-blue' : 'hover:bg-slate-900/30'
-                }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <span className={`font-orbitron font-black text-sm w-6 text-center shrink-0 ${
-                    entry.rank === 1 ? 'text-amber-400' : entry.rank === 2 ? 'text-slate-300' : entry.rank === 3 ? 'text-amber-600' : 'text-slate-500'
-                  }`}>
-                    #{entry.rank}
-                  </span>
+        {rankedLeaderboard.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <Users className="w-10 h-10 text-slate-600 mx-auto" />
+            <p className="font-orbitron font-bold text-sm text-slate-400">
+              No scholars found matching your current filter.
+            </p>
+            <p className="font-rajdhani text-xs text-slate-500 max-w-sm mx-auto">
+              {tab === 'friend' 
+                ? 'Add friends using their unique handle (@username) above to track them on your Friends Leaderboard!'
+                : 'Try clearing your search query or switching to All Scholars.'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800/60">
+            {rankedLeaderboard.map((entry) => {
+              const isSelf = entry.isCurrentUser;
+              const isFriend = customFriends.includes((entry.username || '').toLowerCase());
 
-                  <img
-                    src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
-                    alt={entry.name}
-                    className="w-9 h-9 rounded-full object-cover border border-cyber-blue/40 shrink-0 shadow-sm"
-                  />
+              return (
+                <div
+                  key={entry.email || entry.username || entry.rank}
+                  className={`px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
+                    isSelf ? 'bg-cyber-blue/10 border-l-4 border-l-cyber-blue' : 'hover:bg-slate-900/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span className={`font-orbitron font-black text-sm w-7 text-center shrink-0 ${
+                      entry.rank === 1 ? 'text-amber-400' : entry.rank === 2 ? 'text-slate-300' : entry.rank === 3 ? 'text-amber-600' : 'text-slate-500'
+                    }`}>
+                      #{entry.rank}
+                    </span>
 
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-mono text-xs font-black ${isSelf ? 'text-cyber-blue' : 'text-slate-100'}`}>
-                        @{entry.username}
-                      </span>
-                      <span className="font-mono text-xs text-slate-400 font-medium">
-                        ({entry.name}){isSelf && ' • (You)'}
+                    <img
+                      src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                      alt={entry.name}
+                      className="w-10 h-10 rounded-full object-cover border border-cyber-blue/40 shrink-0 shadow-sm"
+                    />
+
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-mono text-xs font-black ${isSelf ? 'text-cyber-blue' : 'text-slate-100'}`}>
+                          @{entry.username}
+                        </span>
+                        <span className="font-mono text-xs text-slate-400 font-medium">
+                          ({entry.name})
+                        </span>
+                        {isSelf && (
+                          <span className="bg-cyber-blue/20 text-cyber-blue text-[9px] font-orbitron font-extrabold px-1.5 py-0.5 rounded border border-cyber-blue/40">
+                            YOU
+                          </span>
+                        )}
+                        <span className="text-[10px] font-rajdhani font-bold px-2 py-0.5 rounded-full border border-slate-800 bg-slate-900 text-cyber-teal">
+                          {entry.level}
+                        </span>
+                      </div>
+                      <span className="font-rajdhani text-[11px] text-slate-400 font-medium truncate">
+                        {entry.collegeName || 'University Scholar'} • {entry.department || 'Computer Science'}
                       </span>
                     </div>
-                    <span className="font-rajdhani text-[11px] text-slate-400 font-medium">
-                      {entry.collegeName || 'University Scholar'} • {entry.department || 'General'}
-                    </span>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-1 font-mono text-xs text-cyber-pink font-bold">
-                    <Flame className="w-3.5 h-3.5" /> {entry.streak || 5}d
-                  </div>
-                  <div className="flex items-center gap-1 font-mono text-xs font-black text-cyber-blue bg-cyber-blue/5 border border-cyber-blue/20 px-3 py-1 rounded-lg">
-                    <Zap className="w-3.5 h-3.5 text-cyber-blue" /> {entry.xp || 780} XP
+                  <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-center shrink-0">
+                    {!isSelf && (
+                      <button
+                        onClick={() => handleQuickAddFriend(entry.username)}
+                        disabled={isFriend}
+                        className={`px-3 py-1 rounded-lg font-orbitron font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                          isFriend 
+                            ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-default'
+                            : 'bg-cyber-teal/10 hover:bg-cyber-teal/25 text-cyber-teal border border-cyber-teal/30'
+                        }`}
+                      >
+                        {isFriend ? (
+                          <>
+                            <UserCheck className="w-3 h-3" /> Friend
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3 h-3" /> + Add Friend
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    <div className="flex items-center gap-1 font-mono text-xs text-cyber-pink font-bold">
+                      <Flame className="w-3.5 h-3.5 fill-cyber-pink" /> {entry.streak || 1}d
+                    </div>
+                    <div className="flex items-center gap-1 font-mono text-xs font-black text-cyber-blue bg-cyber-blue/5 border border-cyber-blue/20 px-3 py-1 rounded-lg">
+                      <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {entry.xp || 500} XP
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* Modal for Quick Sign-In */}
+      <GoogleAuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
