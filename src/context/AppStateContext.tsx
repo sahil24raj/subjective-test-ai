@@ -172,9 +172,9 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (cloudUsers) {
         setUserDirectory(prev => {
           const map = new Map<string, User>();
-          // Merge local cache and Cloud Firestore real user docs
-          prev.forEach(u => { if (u && u.email) map.set(u.email.toLowerCase(), u); });
-          cloudUsers.forEach(u => { if (u && u.email) map.set(u.email.toLowerCase(), u); });
+          // Merge local cache and Cloud Firestore real user docs (filtering out mock entries)
+          prev.forEach(u => { if (u && u.email && !u.id?.startsWith('sch_')) map.set(u.email.toLowerCase().trim(), u); });
+          cloudUsers.forEach(u => { if (u && u.email && !u.id?.startsWith('sch_')) map.set(u.email.toLowerCase().trim(), u); });
           const merged = Array.from(map.values());
           localStorage.setItem('st_user_directory', JSON.stringify(merged));
           return merged;
@@ -211,7 +211,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // 2. Update local state & localStorage
     setUserDirectory(prev => {
-      const filtered = prev.filter(u => u.email.toLowerCase() !== userData.email.toLowerCase());
+      const cleanEmail = userData.email.toLowerCase().trim();
+      const filtered = prev.filter(u => u && u.email && u.email.toLowerCase().trim() !== cleanEmail && !u.id?.startsWith('sch_'));
       const updated = [userData, ...filtered];
       if (typeof window !== 'undefined') {
         localStorage.setItem('st_user_directory', JSON.stringify(updated));
@@ -232,7 +233,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (savedAccount) {
           savedProfile = JSON.parse(savedAccount);
         } else {
-          const dirFound = userDirectory.find(u => u.email.toLowerCase() === email);
+          const dirFound = userDirectory.find(u => u && u.email && u.email.toLowerCase() === email);
           if (dirFound) {
             savedProfile = dirFound;
           } else {
@@ -243,14 +244,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const defaultUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-    const defaultName = fbUser.displayName || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const defaultName = fbUser.displayName || savedProfile?.name || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const realAvatar = fbUser.photoURL || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`;
 
     const loggedUser: User = {
       id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
-      name: savedProfile?.name || defaultName,
+      name: defaultName,
       username: savedProfile?.username || defaultUsername,
       email: email,
-      avatar: fbUser.photoURL || savedProfile?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      avatar: realAvatar,
       collegeName: savedProfile?.collegeName || '',
       course: savedProfile?.course || '',
       department: savedProfile?.department || '',
@@ -302,12 +304,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const defaultUsername = targetEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
     const defaultName = customName || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+    const realAvatar = customAvatar || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(savedProfile?.name || defaultName)}&background=00f0ff&color=020617&bold=true`;
+
     const loggedUser: User = {
       id: savedProfile?.id || `usr_g_${Date.now()}`,
       name: savedProfile?.name || defaultName,
       username: savedProfile?.username || defaultUsername,
       email: targetEmail,
-      avatar: savedProfile?.avatar || customAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      avatar: realAvatar,
       collegeName: savedProfile?.collegeName || '',
       course: savedProfile?.course || '',
       department: savedProfile?.department || '',

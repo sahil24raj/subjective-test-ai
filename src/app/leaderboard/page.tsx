@@ -12,14 +12,13 @@ import {
   CheckCircle2, 
   UserPlus, 
   Search, 
-  Check, 
   Crown, 
   Sparkles,
-  ArrowUpRight,
-  UserCheck
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { useAppState } from '../../context/AppStateContext';
-import { DEFAULT_SCHOLARS, getLevelFromXp } from '../../lib/mockData';
+import { getLevelFromXp } from '../../lib/mockData';
 import { GoogleAuthModal } from '../../components/GoogleAuthModal';
 
 export default function LeaderboardPage() {
@@ -50,47 +49,42 @@ export default function LeaderboardPage() {
     setTimeout(() => setAddFeedback(null), 4000);
   };
 
-  // Build combined directory with DEFAULT SCHOLARS + Cloud Firestore Users + Active Logged-In User
+  // Build combined directory with ONLY REAL REGISTERED USERS from Cloud Firestore + Active Logged-In User
   const allAccountsMap = new Map<string, any>();
 
-  // 1. Seed with Default SaaS Scholars Community
-  DEFAULT_SCHOLARS.forEach(sch => {
-    if (sch && sch.email) {
-      const key = sch.email.toLowerCase().trim();
-      const levelTitle = getLevelFromXp(sch.xp || 500).name;
-      allAccountsMap.set(key, {
-        ...sch,
-        level: levelTitle,
-        isCurrentUser: false
-      });
-    }
-  });
-
-  // 2. Add real registered accounts from Cloud Firestore userDirectory
+  // 1. Add real registered accounts from Cloud Firestore userDirectory (ignoring any mock accounts)
   userDirectory.forEach(u => {
-    if (u && (u.email || u.username)) {
+    if (u && (u.email || u.username) && !u.id?.startsWith('sch_')) {
       const key = (u.email || u.username).toLowerCase().trim();
       const levelTitle = getLevelFromXp(u.xp || 500).name;
+      const displayName = u.name || u.username || u.email?.split('@')[0] || 'Scholar';
+      const avatarUrl = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f0ff&color=020617&bold=true`;
+      
       allAccountsMap.set(key, {
         ...u,
+        name: displayName,
+        avatar: avatarUrl,
         username: u.username || u.email?.split('@')[0] || 'scholar',
-        name: u.name || u.username || 'Student Scholar',
         level: levelTitle,
         isCurrentUser: Boolean(user && (user.email.toLowerCase().trim() === key || user.username?.toLowerCase() === u.username?.toLowerCase()))
       });
     }
   });
 
-  // 3. Ensure currently logged-in user is ALWAYS inserted with exact active profile details
+  // 2. Ensure currently logged-in user is ALWAYS inserted with exact active profile details & avatar
   if (user && (user.email || user.username)) {
     const key = (user.email || user.username).toLowerCase().trim();
     const existing = allAccountsMap.get(key) || {};
     const levelTitle = getLevelFromXp(user.xp || 500).name;
+    const displayName = user.name || user.username || user.email.split('@')[0] || 'Logged-In Scholar';
+    const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f0ff&color=020617&bold=true`;
+
     allAccountsMap.set(key, {
       ...existing,
       ...user,
+      name: displayName,
+      avatar: avatarUrl,
       username: user.username || user.email.split('@')[0],
-      name: user.name || 'Logged-In Scholar',
       level: levelTitle,
       isCurrentUser: true
     });
@@ -157,13 +151,13 @@ export default function LeaderboardPage() {
           </div>
           <div>
             <h1 className="font-orbitron font-black text-2xl text-white uppercase tracking-wider flex items-center gap-2">
-              Academic Scholar Leaderboard
+              Real Student Leaderboard
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-cyber-blue/40 bg-cyber-blue/10 text-cyber-blue font-bold">
-                LIVE SAAS SYNC
+                100% REAL ACCOUNTS
               </span>
             </h1>
             <p className="font-rajdhani text-xs text-slate-400 font-semibold tracking-wide">
-              Realtime University Rankings • Tracks Every Logged-In Student Account Live
+              Live Cloud Firestore Sync • Real Logged-In Students with Google Accounts
             </p>
           </div>
         </div>
@@ -178,7 +172,7 @@ export default function LeaderboardPage() {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Shield className="w-3.5 h-3.5" /> All Scholars
+            <Shield className="w-3.5 h-3.5" /> All Real Scholars
           </button>
           <button
             onClick={() => setTab('college')}
@@ -221,7 +215,7 @@ export default function LeaderboardPage() {
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <img
-                src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=00f0ff&color=020617&bold=true`}
                 alt={user.name}
                 className="w-14 h-14 rounded-full border-2 border-cyber-blue object-cover shadow-lg"
               />
@@ -250,7 +244,7 @@ export default function LeaderboardPage() {
 
           <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6 w-full md:w-auto justify-between md:justify-end">
             <div className="text-center">
-              <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Global Rank</span>
+              <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Your Global Rank</span>
               <span className="font-orbitron font-black text-lg text-amber-400 flex items-center gap-1 justify-center">
                 <Crown className="w-4 h-4 text-amber-400" /> #{currentUserStanding?.rank || 1}
               </span>
@@ -277,10 +271,10 @@ export default function LeaderboardPage() {
             <Sparkles className="w-6 h-6 text-cyber-blue animate-pulse" />
             <div>
               <h3 className="font-orbitron font-bold text-xs text-white uppercase tracking-wider">
-                Claim Your Student Rank on the Global SaaS Leaderboard!
+                Log In to Show Your Real Google Account on the Leaderboard!
               </h3>
               <p className="font-rajdhani text-xs text-slate-400 font-medium">
-                Log in with your Google or University Account to show your @username and compete with top scholars.
+                Log in with your Google or Email account to record your XP, streak, and compete with real students.
               </p>
             </div>
           </div>
@@ -288,7 +282,7 @@ export default function LeaderboardPage() {
             onClick={() => setShowAuthModal(true)}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(0,240,255,0.3)]"
           >
-            Sign In & Show My ID
+            Sign In with Google
           </button>
         </div>
       )}
@@ -302,7 +296,7 @@ export default function LeaderboardPage() {
               Add Friend by Username (@handle)
             </h3>
             <p className="font-rajdhani text-[11px] text-slate-400 font-medium">
-              Enter any student's handle (e.g. <span className="text-cyber-blue">@aarav_ai</span> or <span className="text-cyber-blue">@priya_code</span>) to add them to your Friends Leaderboard!
+              Enter any real registered student's unique handle (e.g. <span className="text-cyber-blue">@username</span>) to track them on your Friends Leaderboard!
             </p>
           </div>
         </div>
@@ -338,7 +332,7 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Top 3 Podiums */}
+      {/* Top Podiums (Only if real users exist) */}
       {rankedLeaderboard.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           {rankedLeaderboard.slice(0, 3).map((entry, idx) => {
@@ -370,7 +364,7 @@ export default function LeaderboardPage() {
 
                 <div className="relative">
                   <img
-                    src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                    src={entry.avatar}
                     alt={entry.name}
                     className="w-16 h-16 rounded-full border-2 border-current object-cover shadow-lg"
                   />
@@ -405,7 +399,7 @@ export default function LeaderboardPage() {
                   <div className="flex flex-col items-center">
                     <span className="font-rajdhani text-[10px] text-slate-400 uppercase font-bold">Streak</span>
                     <span className="font-mono font-black text-cyber-pink flex items-center gap-1">
-                      <Flame className="w-3 h-3 fill-cyber-pink" /> {entry.streak || 1}d
+                      <Flame className="w-3.5 h-3.5 fill-cyber-pink" /> {entry.streak || 1}d
                     </span>
                   </div>
                 </div>
@@ -420,9 +414,9 @@ export default function LeaderboardPage() {
         <div className="px-6 py-4 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/40">
           <span className="font-orbitron text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
             <Shield className="w-4 h-4 text-cyber-blue" />
-            {tab === 'all' && 'All Registered SaaS Scholars'}
-            {tab === 'college' && `${user?.collegeName || 'College'} Scholars`}
-            {tab === 'department' && `${user?.department || 'Department'} Scholars`}
+            {tab === 'all' && 'Real Logged-In Scholars'}
+            {tab === 'college' && `${user?.collegeName || 'College'} Real Scholars`}
+            {tab === 'department' && `${user?.department || 'Department'} Real Scholars`}
             {tab === 'friend' && 'Friends Leaderboard'}
             <span className="text-cyber-blue font-mono font-bold">({rankedLeaderboard.length})</span>
           </span>
@@ -433,7 +427,7 @@ export default function LeaderboardPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, handle, college..."
+              placeholder="Search by real name, handle, college..."
               className="w-full bg-[#050816] border border-slate-800 focus:border-cyber-blue/50 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none font-mono"
             />
           </div>
@@ -441,14 +435,16 @@ export default function LeaderboardPage() {
 
         {rankedLeaderboard.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <Users className="w-10 h-10 text-slate-600 mx-auto" />
+            <UserX className="w-10 h-10 text-slate-600 mx-auto" />
             <p className="font-orbitron font-bold text-sm text-slate-400">
-              No scholars found matching your current filter.
+              No registered real scholars found matching your criteria.
             </p>
             <p className="font-rajdhani text-xs text-slate-500 max-w-sm mx-auto">
-              {tab === 'friend' 
-                ? 'Add friends using their unique handle (@username) above to track them on your Friends Leaderboard!'
-                : 'Try clearing your search query or switching to All Scholars.'}
+              {!user 
+                ? 'Sign in with Google to be the first real scholar on the leaderboard!'
+                : tab === 'friend'
+                ? 'Add friends using their unique handle (@username) above to track them on your Friends Leaderboard.'
+                : 'As other students log in to the site, they will appear here live!'}
             </p>
           </div>
         ) : (
@@ -472,7 +468,7 @@ export default function LeaderboardPage() {
                     </span>
 
                     <img
-                      src={entry.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80'}
+                      src={entry.avatar}
                       alt={entry.name}
                       className="w-10 h-10 rounded-full object-cover border border-cyber-blue/40 shrink-0 shadow-sm"
                     />
