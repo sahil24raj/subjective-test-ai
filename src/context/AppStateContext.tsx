@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Question, Test } from '../lib/mockData';
+import { Question, Test, getLevelFromXp } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
 import { 
   getFirebaseAuth, 
