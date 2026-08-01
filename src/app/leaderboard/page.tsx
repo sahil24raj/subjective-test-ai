@@ -54,7 +54,7 @@ export default function LeaderboardPage() {
 
   // 1. Add real registered accounts from Cloud Firestore userDirectory (ignoring any mock accounts)
   userDirectory.forEach(u => {
-    if (u && (u.email || u.username) && !u.id?.startsWith('sch_')) {
+    if (u && (u.email || u.username) && !u.id?.startsWith('sch_') && !u.email?.includes('mock')) {
       const key = (u.email || u.username).toLowerCase().trim();
       const levelTitle = getLevelFromXp(u.xp || 500).name;
       const displayName = u.name || u.username || u.email?.split('@')[0] || 'Scholar';

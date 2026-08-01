@@ -85,7 +85,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('st_user_directory');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed: User[] = JSON.parse(saved);
+          return parsed.filter(u => u && u.email && !u.id?.startsWith('sch_') && !u.email.includes('mock'));
+        }
       } catch (e) {}
     }
     return [];
@@ -170,15 +173,16 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const unsubscribe = subscribeToAllUsersFromFirestore((cloudUsers) => {
       if (cloudUsers) {
-        setUserDirectory(prev => {
-          const map = new Map<string, User>();
-          // Merge local cache and Cloud Firestore real user docs (filtering out mock entries)
-          prev.forEach(u => { if (u && u.email && !u.id?.startsWith('sch_')) map.set(u.email.toLowerCase().trim(), u); });
-          cloudUsers.forEach(u => { if (u && u.email && !u.id?.startsWith('sch_')) map.set(u.email.toLowerCase().trim(), u); });
-          const merged = Array.from(map.values());
-          localStorage.setItem('st_user_directory', JSON.stringify(merged));
-          return merged;
+        const map = new Map<string, User>();
+        cloudUsers.forEach(u => {
+          if (u && u.email && !u.id?.startsWith('sch_') && !u.email.includes('mock')) {
+            const cleanEmail = u.email.toLowerCase().trim();
+            map.set(cleanEmail, u);
+          }
         });
+        const merged = Array.from(map.values());
+        setUserDirectory(merged);
+        localStorage.setItem('st_user_directory', JSON.stringify(merged));
       }
     });
     return () => unsubscribe();
@@ -245,7 +249,9 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const defaultUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
     const defaultName = fbUser.displayName || savedProfile?.name || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-    const realAvatar = fbUser.photoURL || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`;
+    const realAvatar = (fbUser.photoURL && fbUser.photoURL.startsWith('http')) 
+      ? fbUser.photoURL 
+      : (savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`);
 
     const loggedUser: User = {
       id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
