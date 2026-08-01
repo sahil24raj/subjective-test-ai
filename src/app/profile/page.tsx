@@ -176,24 +176,36 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Gamified XP & Mastery Metrics Bar (PW/Byju's Style) */}
-        <div className="grid grid-cols-3 gap-4 border-t border-slate-800/80 mt-6 pt-6 text-center">
+        {/* Gamified XP & Mastery Metrics Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 border-t border-slate-800/80 mt-6 pt-6 text-center">
           <div className="flex flex-col items-center">
-            <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase tracking-widest">Scholar Level</span>
-            <span className="font-orbitron font-black text-sm md:text-base text-cyber-teal mt-0.5 flex items-center gap-1">
-              <Shield className="w-4 h-4" /> {user.level}
+            <span className="font-rajdhani text-[10px] font-bold text-slate-500 uppercase tracking-widest">Scholar Level</span>
+            <span className="font-orbitron font-black text-xs md:text-sm text-cyber-teal mt-0.5 flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5" /> {user.level}
             </span>
           </div>
-          <div className="flex flex-col items-center border-x border-slate-800/80 px-2">
-            <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase tracking-widest">Total Mastery XP</span>
-            <span className="font-mono font-black text-sm md:text-base text-cyber-blue mt-0.5 flex items-center gap-1">
-              <Zap className="w-4 h-4 fill-cyber-blue" /> {user.xp} XP
+          <div className="flex flex-col items-center md:border-l border-slate-800/80 px-2">
+            <span className="font-rajdhani text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total XP</span>
+            <span className="font-mono font-black text-xs md:text-sm text-cyber-blue mt-0.5 flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {user.xp || 0} XP
             </span>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase tracking-widest">Daily Streak</span>
-            <span className="font-mono font-black text-sm md:text-base text-cyber-pink mt-0.5 flex items-center gap-1">
-              <Flame className="w-4 h-4 fill-cyber-pink" /> {user.streak} Days
+          <div className="flex flex-col items-center md:border-l border-slate-800/80 px-2">
+            <span className="font-rajdhani text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Score</span>
+            <span className="font-mono font-black text-xs md:text-sm text-amber-400 mt-0.5 flex items-center gap-1">
+              <Award className="w-3.5 h-3.5 text-amber-400" /> {user.avgScore || 0}%
+            </span>
+          </div>
+          <div className="flex flex-col items-center md:border-l border-slate-800/80 px-2">
+            <span className="font-rajdhani text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tests Done</span>
+            <span className="font-mono font-black text-xs md:text-sm text-cyber-teal mt-0.5 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-cyber-teal" /> {user.testsCompleted || 0}
+            </span>
+          </div>
+          <div className="flex flex-col items-center md:border-l border-slate-800/80 px-2">
+            <span className="font-rajdhani text-[10px] font-bold text-slate-500 uppercase tracking-widest">Daily Streak</span>
+            <span className="font-mono font-black text-xs md:text-sm text-cyber-pink mt-0.5 flex items-center gap-1">
+              <Flame className="w-3.5 h-3.5 fill-cyber-pink" /> {user.streak || 1}d
             </span>
           </div>
         </div>

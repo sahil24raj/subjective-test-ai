@@ -60,7 +60,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     try {
       const fbUser = await signInWithFirebaseGoogle();
       setLoading(false);
-      const res = loginWithFirebaseUser({
+      const res = await loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,
@@ -94,7 +94,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
         : await signInWithFirebaseEmail(email.trim(), password);
 
       setLoading(false);
-      const res = loginWithFirebaseUser({
+      const res = await loginWithFirebaseUser({
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName,

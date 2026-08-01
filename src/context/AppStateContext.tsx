@@ -8,6 +8,7 @@ import {
   logoutFirebase, 
   checkRedirectResult, 
   saveUserProfileToFirestore, 
+  getUserProfileFromFirestore,
   subscribeToAllUsersFromFirestore,
   saveTestResultToFirestore,
   subscribeToUserTestHistoryFromFirestore
@@ -29,6 +30,11 @@ export interface User {
   streak: number;
   testsCompleted: number;
   isProfileComplete?: boolean;
+  createdAt?: string;
+  lastLogin?: string;
+  lastActive?: string;
+  avgScore?: number;
+  highestScore?: number;
 }
 
 export interface SavedTestResult {
@@ -55,7 +61,7 @@ interface AppStateContextType {
   activeTestAnswers: Record<string, string>;
   
   loginWithGoogle: (email?: string, name?: string, avatar?: string) => { success: boolean; message?: string };
-  loginWithFirebaseUser: (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) => { success: boolean; isNewUser?: boolean; message?: string };
+  loginWithFirebaseUser: (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) => Promise<{ success: boolean; isNewUser?: boolean; message?: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   addFriendByUsername: (username: string) => { success: boolean; message: string };
@@ -136,7 +142,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user?.email]);
 
-  // Sync Firebase Auth — handles popup and redirect flows
+  // Sync Firebase Auth — handles popup and redirect flows with robust session sync
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -162,6 +168,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           displayName: fbUser.displayName,
           photoURL: fbUser.photoURL
         });
+      } else if (!fbUser) {
+        // Firebase Auth reports no active session — sync local user state if session expired
+        setUser(null);
+        setTestHistory([]);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('st_user');
+          localStorage.removeItem('st_saved_profile');
+        }
       }
     });
     return () => unsubscribe();
@@ -182,7 +196,26 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
         const merged = Array.from(map.values());
         setUserDirectory(merged);
-        localStorage.setItem('st_user_directory', JSON.stringify(merged));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('st_user_directory', JSON.stringify(merged));
+        }
+
+        // Live sync current logged-in user profile from remote Firestore
+        setUser(currentUser => {
+          if (!currentUser || !currentUser.email) return currentUser;
+          const cleanEmail = currentUser.email.toLowerCase().trim();
+          const match = map.get(cleanEmail);
+          if (match) {
+            const updated: User = { ...currentUser, ...match };
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('st_user', JSON.stringify(updated));
+              localStorage.setItem('st_saved_profile', JSON.stringify(updated));
+              localStorage.setItem(`st_profile_${cleanEmail}`, JSON.stringify(updated));
+            }
+            return updated;
+          }
+          return currentUser;
+        });
       }
     });
     return () => unsubscribe();
@@ -225,7 +258,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
-  const loginWithFirebaseUser = (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): { success: boolean; isNewUser?: boolean; message?: string } => {
+  const loginWithFirebaseUser = async (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<{ success: boolean; isNewUser?: boolean; message?: string }> => {
     const email = fbUser.email ? fbUser.email.trim().toLowerCase() : `user_${fbUser.uid.slice(0, 8)}@gmail.com`;
     let isNewUser = false;
     let savedProfile: Partial<User> | null = null;
@@ -237,14 +270,22 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (savedAccount) {
           savedProfile = JSON.parse(savedAccount);
         } else {
-          const dirFound = userDirectory.find(u => u && u.email && u.email.toLowerCase() === email);
+          const dirFound = userDirectory.find(u => u && u.email && u.email.toLowerCase().trim() === email);
           if (dirFound) {
             savedProfile = dirFound;
-          } else {
-            isNewUser = true;
           }
         }
       } catch (e) {}
+    }
+
+    // Fetch directly from Firestore if missing from local cache to prevent profile reset
+    if (!savedProfile) {
+      const cloudProfile = await getUserProfileFromFirestore(email);
+      if (cloudProfile) {
+        savedProfile = cloudProfile;
+      } else {
+        isNewUser = true;
+      }
     }
 
     const defaultUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
@@ -254,9 +295,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       : (savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`);
 
     const startingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
+    const nowIso = new Date().toISOString();
+
     const loggedUser: User = {
       id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
-      name: defaultName,
+      name: savedProfile?.name || defaultName,
       username: savedProfile?.username || defaultUsername,
       email: email,
       avatar: realAvatar,
@@ -268,7 +311,12 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       level: getLevelFromXp(startingXp).name,
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
       testsCompleted: savedProfile?.testsCompleted || 0,
-      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
+      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName),
+      createdAt: savedProfile?.createdAt || nowIso,
+      lastLogin: nowIso,
+      lastActive: nowIso,
+      avgScore: savedProfile?.avgScore ?? 0,
+      highestScore: savedProfile?.highestScore ?? 0,
     };
 
     setUser(loggedUser);
@@ -314,6 +362,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const realAvatar = customAvatar || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(savedProfile?.name || defaultName)}&background=00f0ff&color=020617&bold=true`;
 
     const gStartingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
+    const nowIso = new Date().toISOString();
+
     const loggedUser: User = {
       id: savedProfile?.id || `usr_g_${Date.now()}`,
       name: savedProfile?.name || defaultName,
@@ -328,7 +378,12 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       level: getLevelFromXp(gStartingXp).name,
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
       testsCompleted: savedProfile?.testsCompleted || 0,
-      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
+      isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName),
+      createdAt: savedProfile?.createdAt || nowIso,
+      lastLogin: nowIso,
+      lastActive: nowIso,
+      avgScore: savedProfile?.avgScore ?? 0,
+      highestScore: savedProfile?.highestScore ?? 0,
     };
 
     setUser(loggedUser);
@@ -346,14 +401,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateProfile = (updatedData: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
-      const updated = { ...prev, ...updatedData };
+      const nowIso = new Date().toISOString();
+      const updated: User = { ...prev, ...updatedData, lastActive: nowIso };
 
       saveToDirectory(updated);
 
       if (typeof window !== 'undefined') {
         localStorage.setItem('st_user', JSON.stringify(updated));
         localStorage.setItem('st_saved_profile', JSON.stringify(updated));
-        localStorage.setItem(`st_profile_${updated.email.toLowerCase()}`, JSON.stringify(updated));
+        localStorage.setItem(`st_profile_${updated.email.toLowerCase().trim()}`, JSON.stringify(updated));
       }
       return updated;
     });
@@ -394,6 +450,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTestHistory([]);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('st_user');
+      localStorage.removeItem('st_saved_profile');
     }
     logoutFirebase();
   };
@@ -428,7 +485,9 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       maxScore += e.maxScore;
     });
 
+    const testScorePct = Math.round((totalScore / (maxScore || 1)) * 100);
     const gainedXP = Math.round((totalScore / (maxScore || 1)) * (activeTest.xpReward || 50));
+    const nowIso = new Date().toISOString();
 
     const result: SavedTestResult = {
       id: activeTest.id,
@@ -457,18 +516,36 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Save test result to Cloud Firestore Database
       saveTestResultToFirestore(cleanEmail, result);
 
-      // Update user XP & testsCompleted in Cloud Firestore Database
+      // Calculate updated stats
+      const prevTests = user.testsCompleted || 0;
+      const newTestsCount = prevTests + 1;
+      const prevAvg = user.avgScore || 0;
+      const newAvgScore = Math.round(((prevAvg * prevTests) + testScorePct) / newTestsCount);
+      const newHighestScore = Math.max(user.highestScore || 0, testScorePct);
       const newXp = (user.xp || 0) + gainedXP;
+
+      // Update user XP, avgScore, highestScore & testsCompleted in Cloud Firestore Database
       const updatedUser: User = {
         ...user,
         xp: newXp,
         level: getLevelFromXp(newXp).name,
-        testsCompleted: (user.testsCompleted || 0) + 1,
-        streak: Math.max(user.streak || 1, 1)
+        testsCompleted: newTestsCount,
+        avgScore: newAvgScore,
+        highestScore: newHighestScore,
+        streak: Math.max(user.streak || 1, 1),
+        lastActive: nowIso
       };
 
       setUser(updatedUser);
       saveToDirectory(updatedUser);
+    }
+
+    // Atomically clear active test session to prevent duplicate submissions
+    setActiveTest(null);
+    setActiveTestAnswers({});
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('st_active_test');
+      localStorage.removeItem('st_active_answers');
     }
 
     return result;

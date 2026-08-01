@@ -15,6 +15,7 @@ import {
 import { 
   getFirestore, 
   doc, 
+  getDoc,
   setDoc, 
   collection, 
   onSnapshot, 
@@ -157,13 +158,36 @@ export const saveUserProfileToFirestore = async (userData: any) => {
     if (!db) return;
     const cleanEmail = userData.email.toLowerCase().trim();
     const userDocRef = doc(db, 'users', cleanEmail);
+    const nowIso = new Date().toISOString();
     await setDoc(userDocRef, {
       ...userData,
       email: cleanEmail,
-      updatedAt: new Date().toISOString()
+      updatedAt: nowIso,
+      lastActive: nowIso
     }, { merge: true });
   } catch (e) {
     console.warn("Firestore user save error:", e);
+  }
+};
+
+/**
+ * Fetch a single user profile doc directly from Cloud Firestore by email
+ */
+export const getUserProfileFromFirestore = async (userEmail: string): Promise<any | null> => {
+  if (typeof window === 'undefined' || !userEmail) return null;
+  try {
+    const db = getFirebaseFirestore();
+    if (!db) return null;
+    const cleanEmail = userEmail.toLowerCase().trim();
+    const userDocRef = doc(db, 'users', cleanEmail);
+    const docSnap = await getDoc(userDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (e) {
+    console.warn("Firestore user fetch error:", e);
+    return null;
   }
 };
 

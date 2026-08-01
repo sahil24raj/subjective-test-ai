@@ -92,9 +92,19 @@ export default function LeaderboardPage() {
 
   const allAccountsList = Array.from(allAccountsMap.values());
 
+  const sortComparator = (a: any, b: any) => {
+    const xpDiff = (b.xp || 0) - (a.xp || 0);
+    if (xpDiff !== 0) return xpDiff;
+    const testsDiff = (b.testsCompleted || 0) - (a.testsCompleted || 0);
+    if (testsDiff !== 0) return testsDiff;
+    const avgDiff = (b.avgScore || 0) - (a.avgScore || 0);
+    if (avgDiff !== 0) return avgDiff;
+    return (a.name || '').localeCompare(b.name || '');
+  };
+
   // Compute Overall Global Rank for Current Logged-In User
   const globalRanked = [...allAccountsList]
-    .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+    .sort(sortComparator)
     .map((item, idx) => ({ ...item, rank: idx + 1 }));
 
   const currentUserStanding = globalRanked.find(u => u.isCurrentUser);
@@ -131,8 +141,8 @@ export default function LeaderboardPage() {
     );
   }
 
-  // Sort by XP descending
-  filteredEntries.sort((a, b) => (b.xp || 0) - (a.xp || 0));
+  // Sort by XP descending with tie-breaking
+  filteredEntries.sort(sortComparator);
 
   // Assign ranked positions for current view
   const rankedLeaderboard = filteredEntries.map((item, idx) => ({
