@@ -253,6 +253,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ? fbUser.photoURL 
       : (savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`);
 
+    const startingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
     const loggedUser: User = {
       id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
       name: defaultName,
@@ -263,8 +264,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       course: savedProfile?.course || '',
       department: savedProfile?.department || '',
       subjects: savedProfile?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)'],
-      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 500,
-      level: savedProfile?.level || 'AI Scholar',
+      xp: startingXp,
+      level: getLevelFromXp(startingXp).name,
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
       testsCompleted: savedProfile?.testsCompleted || 0,
       isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
@@ -312,6 +313,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const realAvatar = customAvatar || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(savedProfile?.name || defaultName)}&background=00f0ff&color=020617&bold=true`;
 
+    const gStartingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
     const loggedUser: User = {
       id: savedProfile?.id || `usr_g_${Date.now()}`,
       name: savedProfile?.name || defaultName,
@@ -322,8 +324,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       course: savedProfile?.course || '',
       department: savedProfile?.department || '',
       subjects: savedProfile?.subjects || ['Operating Systems', 'Database Management Systems (DBMS)', 'Data Structures & Algorithms (DSA)'],
-      xp: savedProfile?.xp !== undefined ? savedProfile.xp : 500,
-      level: savedProfile?.level || 'AI Scholar',
+      xp: gStartingXp,
+      level: getLevelFromXp(gStartingXp).name,
       streak: savedProfile?.streak !== undefined ? savedProfile.streak : 1,
       testsCompleted: savedProfile?.testsCompleted || 0,
       isProfileComplete: savedProfile?.isProfileComplete ?? Boolean(savedProfile?.collegeName)
@@ -456,9 +458,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       saveTestResultToFirestore(cleanEmail, result);
 
       // Update user XP & testsCompleted in Cloud Firestore Database
+      const newXp = (user.xp || 0) + gainedXP;
       const updatedUser: User = {
         ...user,
-        xp: (user.xp || 500) + gainedXP,
+        xp: newXp,
+        level: getLevelFromXp(newXp).name,
         testsCompleted: (user.testsCompleted || 0) + 1,
         streak: Math.max(user.streak || 1, 1)
       };

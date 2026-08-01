@@ -56,7 +56,7 @@ export default function LeaderboardPage() {
   userDirectory.forEach(u => {
     if (u && (u.email || u.username) && !u.id?.startsWith('sch_') && !u.email?.includes('mock')) {
       const key = (u.email || u.username).toLowerCase().trim();
-      const levelTitle = getLevelFromXp(u.xp || 500).name;
+      const levelTitle = getLevelFromXp(u.xp ?? 0).name;
       const displayName = u.name || u.username || u.email?.split('@')[0] || 'Scholar';
       const avatarUrl = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f0ff&color=020617&bold=true`;
       
@@ -75,7 +75,7 @@ export default function LeaderboardPage() {
   if (user && (user.email || user.username)) {
     const key = (user.email || user.username).toLowerCase().trim();
     const existing = allAccountsMap.get(key) || {};
-    const levelTitle = getLevelFromXp(user.xp || 500).name;
+    const levelTitle = getLevelFromXp(user.xp ?? 0).name;
     const displayName = user.name || user.username || user.email.split('@')[0] || 'Logged-In Scholar';
     const avatarUrl = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f0ff&color=020617&bold=true`;
 
@@ -253,14 +253,14 @@ export default function LeaderboardPage() {
             <div className="text-center">
               <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Scholar Level</span>
               <span className="font-orbitron font-bold text-xs text-cyber-teal mt-0.5 block">
-                {currentUserStanding?.level || 'AI Scholar'}
+                {currentUserStanding?.level || 'Beginner Scholar'}
               </span>
             </div>
 
             <div className="text-center">
               <span className="font-rajdhani text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total XP</span>
               <span className="font-mono font-black text-sm text-cyber-blue flex items-center gap-1 justify-center mt-0.5">
-                <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {user.xp || 500} XP
+                <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {user.xp ?? 0} XP
               </span>
             </div>
           </div>
@@ -393,7 +393,7 @@ export default function LeaderboardPage() {
                   <div className="flex flex-col items-center">
                     <span className="font-rajdhani text-[10px] text-slate-400 uppercase font-bold">Total XP</span>
                     <span className="font-mono font-black text-cyber-blue flex items-center gap-1">
-                      <Zap className="w-3 h-3 fill-cyber-blue" /> {entry.xp || 500}
+                      <Zap className="w-3 h-3 fill-cyber-blue" /> {entry.xp ?? 0}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">
@@ -523,7 +523,7 @@ export default function LeaderboardPage() {
                       <Flame className="w-3.5 h-3.5 fill-cyber-pink" /> {entry.streak || 1}d
                     </div>
                     <div className="flex items-center gap-1 font-mono text-xs font-black text-cyber-blue bg-cyber-blue/5 border border-cyber-blue/20 px-3 py-1 rounded-lg">
-                      <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {entry.xp || 500} XP
+                      <Zap className="w-3.5 h-3.5 fill-cyber-blue" /> {entry.xp ?? 0} XP
                     </div>
                   </div>
                 </div>
