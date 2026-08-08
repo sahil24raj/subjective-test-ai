@@ -87,7 +87,14 @@ export default function ProfilePage() {
           </p>
         </div>
         <button
-          onClick={() => setShowAuthModal(true)}
+          onClick={async () => {
+            try {
+              const { signInWithSupabaseGoogle } = await import('../../lib/supabase');
+              await signInWithSupabaseGoogle();
+            } catch (e) {
+              setShowAuthModal(true);
+            }
+          }}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
