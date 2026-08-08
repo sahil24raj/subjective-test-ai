@@ -3,12 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState } from '../context/AppStateContext';
-import { signInWithSupabaseEmail, signUpWithSupabaseEmail } from '../lib/supabase';
+import { signInWithSupabaseGoogle, signInWithSupabaseEmail, signUpWithSupabaseEmail } from '../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const GoogleLogo = () => (
+  <svg width="20" height="20" viewBox="0 0 48 48">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>
+);
 
 export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { user, loginWithSupabaseUser, updateProfile } = useAppState();
@@ -53,6 +62,17 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await signInWithSupabaseGoogle();
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Google OAuth sign-in failed.');
+    }
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -64,13 +84,17 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
 
       setLoading(false);
 
+      if (!spUser) {
+        throw new Error("Unable to authenticate with Supabase.");
+      }
+
       if (screen === 'register') {
-        if (!spUser || (spUser.identities && spUser.identities.length === 0)) {
+        if (spUser.identities && spUser.identities.length === 0) {
           setError('User already registered. Please sign in instead.');
           return;
         }
         // If email confirmation is required and user email isn't confirmed yet
-        if (spUser && !spUser.email_confirmed_at) {
+        if (!spUser.email_confirmed_at) {
           setError('✉ Verification link sent! Please check your email inbox to verify your account.');
           return;
         }
@@ -294,41 +318,70 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
             </div>
 
           ) : screen === 'login' || screen === 'register' ? (
-            /* ─── Direct Supabase Email/Password Form ─── */
-            <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {screen === 'register' && (
+            /* ─── Supabase Auth Form ─── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Google OAuth Button */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                style={{
+                  width: '100%', height: 44, borderRadius: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  backgroundColor: '#fff', color: '#0f172a', border: 'none',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  boxShadow: '0 4px 15px rgba(255,255,255,0.15)',
+                  transition: 'transform 0.15s, background-color 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
+              >
+                <GoogleLogo />
+                Sign in with Google
+              </button>
+
+              {/* Divider */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '2px 0' }}>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <span style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif" }}>or</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              </div>
+
+              <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {screen === 'register' && (
+                  <div>
+                    <label style={labelStyle}>Full Name</label>
+                    <input
+                      type="text" required value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="e.g. Sahil Raj"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
                 <div>
-                  <label style={labelStyle}>Full Name</label>
+                  <label style={labelStyle}>Email Address</label>
                   <input
-                    type="text" required value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    placeholder="e.g. Sahil Raj"
+                    type="email" required value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="name@example.com"
                     style={inputStyle}
                   />
                 </div>
-              )}
-              <div>
-                <label style={labelStyle}>Email Address</label>
-                <input
-                  type="email" required value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Password</label>
-                <input
-                  type="password" required minLength={6} value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  style={inputStyle}
-                />
-              </div>
-              <button type="submit" style={{ ...primaryBtnStyle, marginTop: 6 }}>
-                {screen === 'register' ? 'Register Account' : 'Sign In with Supabase'}
-              </button>
-            </form>
+                <div>
+                  <label style={labelStyle}>Password</label>
+                  <input
+                    type="password" required minLength={6} value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    style={inputStyle}
+                  />
+                </div>
+                <button type="submit" style={{ ...primaryBtnStyle, marginTop: 6 }}>
+                  {screen === 'register' ? 'Register Account' : 'Sign In with Supabase'}
+                </button>
+              </form>
+            </div>
 
           ) : (
             /* ─── Onboarding Form ─── */
