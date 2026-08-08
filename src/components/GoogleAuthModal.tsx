@@ -87,11 +87,9 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
       setLoading(false);
       const msg = err.message || '';
       console.error("Supabase Auth Error:", err);
-      if (msg.includes('email rate limit exceeded') || msg.toLowerCase().includes('rate limit')) {
-        setError('Supabase Email Rate Limit Exceeded. Please wait 60 seconds or disable "Confirm Email" in Supabase Auth settings.');
-      } else if (msg.includes('Invalid login credentials')) {
+      if (msg.includes('Invalid login credentials')) {
         setError('Invalid email or password.');
-      } else if (msg.includes('User already registered')) {
+      } else if (msg.includes('User already registered') || msg.toLowerCase().includes('already registered')) {
         setError('Email is already registered. Try logging in.');
       } else {
         setError(msg || 'Authentication failed.');
