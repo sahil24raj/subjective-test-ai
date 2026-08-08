@@ -132,9 +132,9 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user && session.user.email) {
-        loginWithSupabaseUser({
+        const res = await loginWithSupabaseUser({
           id: session.user.id,
           email: session.user.email,
           displayName: session.user.user_metadata?.display_name || session.user.user_metadata?.full_name || null,
