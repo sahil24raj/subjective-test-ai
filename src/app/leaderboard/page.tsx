@@ -163,11 +163,11 @@ export default function LeaderboardPage() {
             <h1 className="font-orbitron font-black text-2xl text-white uppercase tracking-wider flex items-center gap-2">
               Real Student Leaderboard
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-cyber-blue/40 bg-cyber-blue/10 text-cyber-blue font-bold">
-                100% REAL ACCOUNTS
+                100% REAL SCHOLARS
               </span>
             </h1>
             <p className="font-rajdhani text-xs text-slate-400 font-semibold tracking-wide">
-              Live Cloud Firestore Sync • Real Logged-In Students with Google Accounts
+              Live Supabase Realtime Sync • Real Logged-In Students with Supabase Accounts
             </p>
           </div>
         </div>

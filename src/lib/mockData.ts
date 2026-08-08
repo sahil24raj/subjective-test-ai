@@ -246,17 +246,11 @@ export const BADGES: Badge[] = [
   }
 ];
 
-// 4. Leaderboard Data (Real Users dynamically fetched from Cloud Firestore)
+// 4. Leaderboard Data (Real Users dynamically fetched from Supabase Database)
 export const MOCK_LEADERBOARDS: Record<'college' | 'department' | 'friend', LeaderboardEntry[]> = {
-  college: [
-    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
-  ],
-  department: [
-    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
-  ],
-  friend: [
-    { rank: 1, name: 'Sahil Raj', avatar: 'cyber_avatar_1', xp: 780, level: 'AI Apprentice', streak: 5, testsCompleted: 8, isCurrentUser: true }
-  ]
+  college: [],
+  department: [],
+  friend: []
 };
 
 // 5. XP and Levels calculation helpers

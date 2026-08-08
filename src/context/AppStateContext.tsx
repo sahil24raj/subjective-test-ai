@@ -78,7 +78,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // Ignore legacy mock or old firebase account caches
+          if (parsed && parsed.email && !parsed.id?.startsWith('sch_') && !parsed.email.includes('mock')) {
+            return parsed;
+          }
+        }
       } catch (e) {}
     }
     return null;
