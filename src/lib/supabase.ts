@@ -43,10 +43,13 @@ export const signUpWithSupabaseEmail = async (email: string, pass: string, displ
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase client not initialized.");
 
+  const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/profile` : undefined;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password: pass,
     options: {
+      emailRedirectTo: redirectUrl,
       data: {
         display_name: displayName,
       },
