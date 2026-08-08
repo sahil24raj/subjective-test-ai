@@ -281,10 +281,10 @@ export default function LeaderboardPage() {
             <Sparkles className="w-6 h-6 text-cyber-blue animate-pulse" />
             <div>
               <h3 className="font-orbitron font-bold text-xs text-white uppercase tracking-wider">
-                Log In to Show Your Real Google Account on the Leaderboard!
+                Sign In to Record Your Student Profile on the Leaderboard!
               </h3>
               <p className="font-rajdhani text-xs text-slate-400 font-medium">
-                Log in with your Google or Email account to record your XP, streak, and compete with real students.
+                Log in or create a Supabase account to record your XP, streak, and compete with real students.
               </p>
             </div>
           </div>
@@ -292,7 +292,7 @@ export default function LeaderboardPage() {
             onClick={() => setShowAuthModal(true)}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyber-blue to-cyber-teal text-slate-950 font-orbitron font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all cursor-pointer whitespace-nowrap shadow-[0_0_15px_rgba(0,240,255,0.3)]"
           >
-            Sign In with Google
+            Sign In / Register
           </button>
         </div>
       )}
