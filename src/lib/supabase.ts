@@ -10,7 +10,14 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   if (_supabase) return _supabase;
 
   try {
-    _supabase = createClient(supabaseUrl, supabaseAnonKey);
+    _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+      },
+    });
     return _supabase;
   } catch (e) {
     console.warn("Supabase init error:", e);
