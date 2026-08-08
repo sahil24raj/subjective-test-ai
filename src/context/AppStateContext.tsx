@@ -4,16 +4,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Question, Test, getLevelFromXp } from '../lib/mockData';
 import { QuestionEvaluation } from '../lib/ai';
 import { 
-  getFirebaseAuth, 
-  logoutFirebase, 
-  checkRedirectResult, 
-  saveUserProfileToFirestore, 
-  getUserProfileFromFirestore,
-  subscribeToAllUsersFromFirestore,
-  saveTestResultToFirestore,
-  subscribeToUserTestHistoryFromFirestore
-} from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+  getSupabaseClient,
+  logoutSupabase, 
+  saveUserProfileToSupabase, 
+  getUserProfileFromSupabase,
+  subscribeToAllUsersFromSupabase,
+  saveTestResultToSupabase,
+  subscribeToUserTestHistoryFromSupabase
+} from '../lib/supabase';
 
 export interface User {
   id?: string;
@@ -61,7 +59,7 @@ interface AppStateContextType {
   activeTestAnswers: Record<string, string>;
   
   loginWithGoogle: (email?: string, name?: string, avatar?: string) => { success: boolean; message?: string };
-  loginWithFirebaseUser: (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }) => Promise<{ success: boolean; isNewUser?: boolean; message?: string }>;
+  loginWithSupabaseUser: (spUser: { id: string; email: string | null; displayName: string | null; photoURL: string | null }) => Promise<{ success: boolean; isNewUser?: boolean; message?: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   addFriendByUsername: (username: string) => { success: boolean; message: string };
@@ -86,7 +84,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   });
 
-  // Multi-user directory state — Populated 100% dynamically from Cloud Firestore (NO MOCK DATA)
+  // Multi-user directory state — Populated dynamically from Supabase Database
   const [userDirectory, setUserDirectory] = useState<User[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -114,7 +112,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // User-scoped test history
   const [testHistory, setTestHistory] = useState<SavedTestResult[]>([]);
 
-  // Sync test history from LocalStorage & Cloud Firestore when user changes
+  // Sync test history from LocalStorage & Supabase Database when user changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (user && user.email) {
@@ -129,8 +127,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      // Realtime listener for Firestore Test History
-      const unsubscribe = subscribeToUserTestHistoryFromFirestore(cleanEmail, (cloudTests) => {
+      // Realtime listener for Supabase Test History
+      const unsubscribe = subscribeToUserTestHistoryFromSupabase(cleanEmail, (cloudTests) => {
         if (cloudTests && cloudTests.length > 0) {
           setTestHistory(cloudTests);
           localStorage.setItem(userHistoryKey, JSON.stringify(cloudTests));
@@ -142,34 +140,34 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [user?.email]);
 
-  // Sync Firebase Auth — handles popup and redirect flows with robust session sync
+  // Sync Supabase Auth session changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    const authInstance = getFirebaseAuth();
-    if (!authInstance) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
 
-    checkRedirectResult().then((fbUser) => {
-      if (fbUser && fbUser.email) {
-        loginWithFirebaseUser({
-          uid: fbUser.uid,
-          email: fbUser.email,
-          displayName: fbUser.displayName,
-          photoURL: fbUser.photoURL
+    // Fetch initial active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && session.user.email) {
+        loginWithSupabaseUser({
+          id: session.user.id,
+          email: session.user.email,
+          displayName: session.user.user_metadata?.display_name || session.user.user_metadata?.full_name || null,
+          photoURL: session.user.user_metadata?.avatar_url || null
         });
       }
     });
 
-    const unsubscribe = onAuthStateChanged(authInstance, (fbUser) => {
-      if (fbUser && fbUser.email) {
-        loginWithFirebaseUser({
-          uid: fbUser.uid,
-          email: fbUser.email,
-          displayName: fbUser.displayName,
-          photoURL: fbUser.photoURL
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && session.user.email) {
+        loginWithSupabaseUser({
+          id: session.user.id,
+          email: session.user.email,
+          displayName: session.user.user_metadata?.display_name || session.user.user_metadata?.full_name || null,
+          photoURL: session.user.user_metadata?.avatar_url || null
         });
-      } else if (!fbUser) {
-        // Firebase Auth reports no active session — sync local user state if session expired
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setTestHistory([]);
         if (typeof window !== 'undefined') {
@@ -178,14 +176,17 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Real-time Cloud Firestore User Directory & Global Leaderboard Sync (100% Real Users)
+  // Real-time Supabase Database User Directory & Leaderboard Sync
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const unsubscribe = subscribeToAllUsersFromFirestore((cloudUsers) => {
+    const unsubscribe = subscribeToAllUsersFromSupabase((cloudUsers) => {
       if (cloudUsers) {
         const map = new Map<string, User>();
         cloudUsers.forEach(u => {
@@ -200,7 +201,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           localStorage.setItem('st_user_directory', JSON.stringify(merged));
         }
 
-        // Live sync current logged-in user profile from remote Firestore
+        // Live sync current logged-in user profile from remote Supabase
         setUser(currentUser => {
           if (!currentUser || !currentUser.email) return currentUser;
           const cleanEmail = currentUser.email.toLowerCase().trim();
@@ -241,10 +242,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return {};
   });
 
-  // Save real account to user directory and Cloud Firestore
+  // Save account to user directory and Supabase Database
   const saveToDirectory = (userData: User) => {
-    // 1. Persist to Cloud Firestore database
-    saveUserProfileToFirestore(userData);
+    // 1. Persist to Supabase database
+    saveUserProfileToSupabase(userData);
 
     // 2. Update local state & localStorage
     setUserDirectory(prev => {
@@ -258,8 +259,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
-  const loginWithFirebaseUser = async (fbUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<{ success: boolean; isNewUser?: boolean; message?: string }> => {
-    const email = fbUser.email ? fbUser.email.trim().toLowerCase() : `user_${fbUser.uid.slice(0, 8)}@gmail.com`;
+  const loginWithSupabaseUser = async (spUser: { id: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<{ success: boolean; isNewUser?: boolean; message?: string }> => {
+    const email = spUser.email ? spUser.email.trim().toLowerCase() : `user_${spUser.id.slice(0, 8)}@gmail.com`;
     let isNewUser = false;
     let savedProfile: Partial<User> | null = null;
 
@@ -278,9 +279,9 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (e) {}
     }
 
-    // Fetch directly from Firestore if missing from local cache to prevent profile reset
+    // Fetch directly from Supabase if missing from local cache
     if (!savedProfile) {
-      const cloudProfile = await getUserProfileFromFirestore(email);
+      const cloudProfile = await getUserProfileFromSupabase(email);
       if (cloudProfile) {
         savedProfile = cloudProfile;
       } else {
@@ -289,16 +290,16 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const defaultUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-    const defaultName = fbUser.displayName || savedProfile?.name || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-    const realAvatar = (fbUser.photoURL && fbUser.photoURL.startsWith('http')) 
-      ? fbUser.photoURL 
+    const defaultName = spUser.displayName || savedProfile?.name || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const realAvatar = (spUser.photoURL && spUser.photoURL.startsWith('http')) 
+      ? spUser.photoURL 
       : (savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=00f0ff&color=020617&bold=true`);
 
     const startingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
     const nowIso = new Date().toISOString();
 
     const loggedUser: User = {
-      id: fbUser.uid || savedProfile?.id || `usr_fb_${Date.now()}`,
+      id: spUser.id || savedProfile?.id || `usr_sp_${Date.now()}`,
       name: savedProfile?.name || defaultName,
       username: savedProfile?.username || defaultUsername,
       email: email,
@@ -358,7 +359,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const defaultUsername = targetEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
     const defaultName = customName || defaultUsername.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
-
     const realAvatar = customAvatar || savedProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(savedProfile?.name || defaultName)}&background=00f0ff&color=020617&bold=true`;
 
     const gStartingXp = savedProfile?.xp !== undefined ? savedProfile.xp : 0;
@@ -452,7 +452,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.removeItem('st_user');
       localStorage.removeItem('st_saved_profile');
     }
-    logoutFirebase();
+    logoutSupabase();
   };
 
   const startNewTest = (test: Test) => {
@@ -513,8 +513,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem(`st_history_${cleanEmail}`, JSON.stringify(updatedHistory));
       }
       
-      // Save test result to Cloud Firestore Database
-      saveTestResultToFirestore(cleanEmail, result);
+      // Save test result to Supabase Database
+      saveTestResultToSupabase(cleanEmail, result);
 
       // Calculate updated stats
       const prevTests = user.testsCompleted || 0;
@@ -524,7 +524,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const newHighestScore = Math.max(user.highestScore || 0, testScorePct);
       const newXp = (user.xp || 0) + gainedXP;
 
-      // Update user XP, avgScore, highestScore & testsCompleted in Cloud Firestore Database
+      // Update user XP, avgScore, highestScore & testsCompleted in Supabase Database
       const updatedUser: User = {
         ...user,
         xp: newXp,
@@ -564,7 +564,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       activeTest,
       activeTestAnswers,
       loginWithGoogle,
-      loginWithFirebaseUser,
+      loginWithSupabaseUser,
       logout,
       updateProfile,
       addFriendByUsername,

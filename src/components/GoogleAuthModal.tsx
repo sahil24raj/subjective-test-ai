@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState } from '../context/AppStateContext';
-import { signInWithFirebaseGoogle, signInWithFirebaseEmail, signUpWithFirebaseEmail } from '../lib/firebase';
+import { signInWithSupabaseGoogle, signInWithSupabaseEmail, signUpWithSupabaseEmail } from '../lib/supabase';
 
 interface GoogleAuthModalProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ const GoogleLogo = () => (
 );
 
 export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, loginWithFirebaseUser, updateProfile } = useAppState();
+  const { user, loginWithSupabaseUser, updateProfile } = useAppState();
 
   const [mounted, setMounted] = useState(false);
   type Screen = 'main' | 'email-login' | 'email-register' | 'onboarding';
@@ -58,29 +58,12 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     setLoading(true);
     setError('');
     try {
-      const fbUser = await signInWithFirebaseGoogle();
+      await signInWithSupabaseGoogle();
       setLoading(false);
-      const res = await loginWithFirebaseUser({
-        uid: fbUser.uid,
-        email: fbUser.email,
-        displayName: fbUser.displayName,
-        photoURL: fbUser.photoURL,
-      });
-      onSuccess(res);
+      setRedirecting(true);
     } catch (err: any) {
-      if (err.message === 'REDIRECT_INITIATED') {
-        setLoading(false);
-        setRedirecting(true);
-        return;
-      }
       setLoading(false);
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in popup was closed. Please try again.');
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError('Domain not authorized in Firebase Console.');
-      } else {
-        setError(err.message || 'Sign-in failed. Please try again.');
-      }
+      setError(err.message || 'Google OAuth sign-in failed.');
     }
   };
 
@@ -89,27 +72,37 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     setLoading(true);
     setError('');
     try {
-      const fbUser = screen === 'email-register'
-        ? await signUpWithFirebaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0])
-        : await signInWithFirebaseEmail(email.trim(), password);
+      const spUser = screen === 'email-register'
+        ? await signUpWithSupabaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0])
+        : await signInWithSupabaseEmail(email.trim(), password);
 
       setLoading(false);
-      const res = await loginWithFirebaseUser({
-        uid: fbUser.uid,
-        email: fbUser.email,
-        displayName: fbUser.displayName,
-        photoURL: fbUser.photoURL,
+
+      if (!spUser) {
+        // If confirmation email was sent
+        if (screen === 'email-register') {
+          setError('Registration successful! Please check your email to verify your account.');
+          return;
+        }
+        throw new Error("Unable to authenticate user.");
+      }
+
+      const res = await loginWithSupabaseUser({
+        id: spUser.id,
+        email: spUser.email || null,
+        displayName: (spUser.user_metadata?.display_name || spUser.user_metadata?.full_name || displayName) || null,
+        photoURL: spUser.user_metadata?.avatar_url || null,
       });
       onSuccess(res);
     } catch (err: any) {
       setLoading(false);
-      const code = err.code || '';
-      if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) {
+      const msg = err.message || '';
+      if (msg.includes('Invalid login credentials')) {
         setError('Invalid email or password.');
-      } else if (code.includes('email-already-in-use')) {
+      } else if (msg.includes('User already registered')) {
         setError('Email is already registered. Try logging in.');
       } else {
-        setError(err.message || 'Authentication failed.');
+        setError(msg || 'Authentication failed.');
       }
     }
   };
@@ -248,7 +241,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
             {screen === 'onboarding' ? 'Academic Profile Setup' : screen === 'email-register' ? 'Create Student Account' : 'Sign In to Subjective Test AI'}
           </h2>
           <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0', fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {screen === 'onboarding' ? 'Setup your university details once to auto-fill AI exam builder' : 'Real SaaS Google Authentication Portal'}
+            {screen === 'onboarding' ? 'Setup your university details once to auto-fill AI exam builder' : 'Supabase Authentication Portal'}
           </p>
         </div>
 
@@ -277,7 +270,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 animation: 'spin 0.8s linear infinite',
               }} />
               <p style={{ fontSize: 13, color: '#00f0ff', fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif" }}>
-                {redirecting ? 'Redirecting to Google OAuth...' : 'Connecting to Firebase Authentication...'}
+                {redirecting ? 'Redirecting to Google OAuth...' : 'Connecting to Supabase Authentication...'}
               </p>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
@@ -326,7 +319,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,240,255,0.5)'; e.currentTarget.style.backgroundColor = 'rgba(0,240,255,0.08)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
               >
-                ✉ Sign in with Firebase Email
+                ✉ Sign in with Email
               </button>
 
               {/* Register link */}
@@ -355,7 +348,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 </div>
               )}
               <div>
-                <label style={labelStyle}>Firebase Email Address</label>
+                <label style={labelStyle}>Email Address</label>
                 <input
                   type="email" required value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -396,7 +389,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
             </form>
 
           ) : (
-            /* ─── Onboarding Form (Spacious & Clean Layout) ─── */
+            /* ─── Onboarding Form ─── */
             <form onSubmit={handleOnboarding} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{
                 padding: '8px 12px', borderRadius: 8,
@@ -404,7 +397,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 color: '#00f0ff', fontSize: 12, fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif",
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <span>✓</span> Verified Firebase Account
+                <span>✓</span> Verified Supabase Account
               </div>
 
               <div>
@@ -450,8 +443,8 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
           fontSize: 11, color: '#475569', fontFamily: "'Inter', system-ui, sans-serif",
           borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: 12,
         }}>
-          <span>🔒 Secured by Firebase Auth SDK</span>
-          <span>study-buddy-a26c5</span>
+          <span>🔒 Secured by Supabase Auth</span>
+          <span>Study Buddy AI</span>
         </div>
       </div>
     </div>
