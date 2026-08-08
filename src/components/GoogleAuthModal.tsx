@@ -32,6 +32,15 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      if (user.collegeName) setCollegeName(user.collegeName);
+      if (user.course) setCourse(user.course);
+      if (user.department) setDepartment(user.department);
+      if (user.subjects && user.subjects.length > 0) setSubjectsStr(user.subjects.join(', '));
+    }
+  }, [user]);
+
   if (!mounted || !isOpen) return null;
 
   const onSuccess = (res: { success: boolean; isNewUser?: boolean }) => {

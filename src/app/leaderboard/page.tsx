@@ -23,7 +23,7 @@ import { GoogleAuthModal } from '../../components/GoogleAuthModal';
 
 export default function LeaderboardPage() {
   const { user, userDirectory, customFriends, addFriendByUsername } = useAppState();
-  const [tab, setTab] = useState<'all' | 'college' | 'department' | 'friend'>('all');
+  const [tab, setTab] = useState<'all' | 'college' | 'course' | 'department' | 'friend'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
   
@@ -98,8 +98,7 @@ export default function LeaderboardPage() {
     const testsDiff = (b.testsCompleted || 0) - (a.testsCompleted || 0);
     if (testsDiff !== 0) return testsDiff;
     const avgDiff = (b.avgScore || 0) - (a.avgScore || 0);
-    if (avgDiff !== 0) return avgDiff;
-    return (a.name || '').localeCompare(b.name || '');
+    return avgDiff;
   };
 
   // Compute Overall Global Rank for Current Logged-In User
@@ -115,13 +114,19 @@ export default function LeaderboardPage() {
   if (tab === 'college') {
     if (user?.collegeName) {
       filteredEntries = filteredEntries.filter(
-        u => u.isCurrentUser || (u.collegeName && u.collegeName.toLowerCase() === user.collegeName.toLowerCase())
+        u => u.isCurrentUser || (u.collegeName && u.collegeName.trim().toLowerCase() === user.collegeName.trim().toLowerCase())
+      );
+    }
+  } else if (tab === 'course') {
+    if (user?.course) {
+      filteredEntries = filteredEntries.filter(
+        u => u.isCurrentUser || (u.course && u.course.trim().toLowerCase() === user.course.trim().toLowerCase())
       );
     }
   } else if (tab === 'department') {
     if (user?.department) {
       filteredEntries = filteredEntries.filter(
-        u => u.isCurrentUser || (u.department && u.department.toLowerCase() === user.department.toLowerCase())
+        u => u.isCurrentUser || (u.department && u.department.trim().toLowerCase() === user.department.trim().toLowerCase())
       );
     }
   } else if (tab === 'friend') {
@@ -137,6 +142,7 @@ export default function LeaderboardPage() {
       u => (u.username && u.username.toLowerCase().includes(q)) || 
            (u.name && u.name.toLowerCase().includes(q)) || 
            (u.collegeName && u.collegeName.toLowerCase().includes(q)) ||
+           (u.course && u.course.toLowerCase().includes(q)) ||
            (u.department && u.department.toLowerCase().includes(q))
     );
   }
@@ -172,21 +178,21 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Tab Switchers (ALL, COLLEGE, DEPT, FRIENDS) */}
+        {/* Tab Switchers (ALL, COLLEGE, COURSE, DEPT, FRIENDS) */}
         <div className="flex flex-wrap bg-[#080d21] border border-slate-800 p-1 rounded-xl">
           <button
             onClick={() => setTab('all')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'all'
                 ? 'bg-cyber-blue/20 text-cyber-blue border border-cyber-blue/40 shadow-[0_0_10px_rgba(0,240,255,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Shield className="w-3.5 h-3.5" /> All Real Scholars
+            <Shield className="w-3.5 h-3.5" /> All Scholars
           </button>
           <button
             onClick={() => setTab('college')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'college'
                 ? 'bg-cyber-teal/20 text-cyber-teal border border-cyber-teal/40 shadow-[0_0_10px_rgba(0,255,213,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
@@ -195,18 +201,28 @@ export default function LeaderboardPage() {
             <Building2 className="w-3.5 h-3.5" /> College
           </button>
           <button
+            onClick={() => setTab('course')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+              tab === 'course'
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" /> My Course
+          </button>
+          <button
             onClick={() => setTab('department')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'department'
                 ? 'bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/40 shadow-[0_0_10px_rgba(189,0,255,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <GraduationCap className="w-3.5 h-3.5" /> Dept
+            <Sparkles className="w-3.5 h-3.5" /> My Dept
           </button>
           <button
             onClick={() => setTab('friend')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-orbitron font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'friend'
                 ? 'bg-cyber-pink/20 text-cyber-pink border border-cyber-pink/40 shadow-[0_0_10px_rgba(255,0,85,0.25)]'
                 : 'text-slate-400 hover:text-slate-200'
