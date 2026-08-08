@@ -25,12 +25,16 @@ export const signInWithSupabaseGoogle = async () => {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase client not initialized.");
 
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+  const targetRedirect = typeof window !== 'undefined' ? `${window.location.origin}/profile` : undefined;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: currentUrl,
+      redirectTo: targetRedirect,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'select_account',
+      },
     },
   });
 
