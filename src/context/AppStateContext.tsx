@@ -73,22 +73,8 @@ interface AppStateContextType {
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current active logged in user state
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('st_saved_profile') || localStorage.getItem('st_user');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          // Ignore legacy mock or old firebase account caches
-          if (parsed && parsed.email && !parsed.id?.startsWith('sch_') && !parsed.email.includes('mock')) {
-            return parsed;
-          }
-        }
-      } catch (e) {}
-    }
-    return null;
-  });
+  // Current active logged in user state (strictly loaded via Supabase Session / Auth)
+  const [user, setUser] = useState<User | null>(null);
 
   // Multi-user directory state — Populated dynamically from Supabase Database
   const [userDirectory, setUserDirectory] = useState<User[]>(() => {
