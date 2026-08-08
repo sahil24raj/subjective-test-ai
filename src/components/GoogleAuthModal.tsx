@@ -64,12 +64,16 @@ export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) =
 
       setLoading(false);
 
-      if (!spUser) {
-        if (screen === 'register') {
-          setError('Registration successful! Check your email if verification is required.');
+      if (screen === 'register') {
+        if (!spUser || (spUser.identities && spUser.identities.length === 0)) {
+          setError('User already registered. Please sign in instead.');
           return;
         }
-        throw new Error("Unable to authenticate with Supabase.");
+        // If email confirmation is required and user email isn't confirmed yet
+        if (spUser && !spUser.email_confirmed_at) {
+          setError('✉ Verification link sent! Please check your email inbox to verify your account.');
+          return;
+        }
       }
 
       const res = await loginWithSupabaseUser({
