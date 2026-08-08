@@ -3,34 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppState } from '../context/AppStateContext';
-import { signInWithSupabaseGoogle, signInWithSupabaseEmail, signUpWithSupabaseEmail } from '../lib/supabase';
+import { signInWithSupabaseEmail, signUpWithSupabaseEmail } from '../lib/supabase';
 
-interface GoogleAuthModalProps {
+interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const GoogleLogo = () => (
-  <svg width="20" height="20" viewBox="0 0 48 48">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-  </svg>
-);
-
-export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClose }) => {
+export const GoogleAuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { user, loginWithSupabaseUser, updateProfile } = useAppState();
 
   const [mounted, setMounted] = useState(false);
-  type Screen = 'main' | 'email-login' | 'email-register' | 'onboarding';
-  const [screen, setScreen] = useState<Screen>('main');
+  type Screen = 'login' | 'register' | 'onboarding';
+  const [screen, setScreen] = useState<Screen>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
 
   // Onboarding
   const [collegeName, setCollegeName] = useState('');
@@ -54,37 +44,23 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      await signInWithSupabaseGoogle();
-      setLoading(false);
-      setRedirecting(true);
-    } catch (err: any) {
-      setLoading(false);
-      setError(err.message || 'Google OAuth sign-in failed.');
-    }
-  };
-
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const spUser = screen === 'email-register'
+      const spUser = screen === 'register'
         ? await signUpWithSupabaseEmail(email.trim(), password, displayName.trim() || email.split('@')[0])
         : await signInWithSupabaseEmail(email.trim(), password);
 
       setLoading(false);
 
       if (!spUser) {
-        // If confirmation email was sent
-        if (screen === 'email-register') {
-          setError('Registration successful! Please check your email to verify your account.');
+        if (screen === 'register') {
+          setError('Registration successful! Check your email if verification is required.');
           return;
         }
-        throw new Error("Unable to authenticate user.");
+        throw new Error("Unable to authenticate with Supabase.");
       }
 
       const res = await loginWithSupabaseUser({
@@ -123,13 +99,13 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
   // ─── Shared SaaS Styling Tokens ───
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    height: '42px',
+    height: '44px',
     padding: '0 14px',
     borderRadius: '10px',
     fontSize: '13px',
     color: '#f8fafc',
     backgroundColor: '#05091e',
-    border: '1px solid rgba(0, 240, 255, 0.2)',
+    border: '1px solid rgba(0, 240, 255, 0.25)',
     outline: 'none',
     fontFamily: "'Inter', system-ui, sans-serif",
     transition: 'all 0.2s ease',
@@ -140,7 +116,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
     fontSize: '11px',
     fontWeight: 700,
     color: '#38bdf8',
-    marginBottom: '5px',
+    marginBottom: '6px',
     textTransform: 'uppercase',
     letterSpacing: '0.6px',
     fontFamily: "'Inter', system-ui, sans-serif",
@@ -148,7 +124,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
 
   const primaryBtnStyle: React.CSSProperties = {
     width: '100%',
-    height: '44px',
+    height: '46px',
     borderRadius: '12px',
     fontSize: '14px',
     fontWeight: 800,
@@ -182,11 +158,10 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
         WebkitBackdropFilter: 'blur(16px)',
       }}
     >
-      {/* Centered SaaS Dialog Window */}
       <div
         style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: '440px',
           maxHeight: '92vh',
           overflowY: 'auto',
           borderRadius: '24px',
@@ -197,7 +172,6 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
           margin: 'auto',
         }}
       >
-        {/* Close Button */}
         <button
           onClick={onClose}
           style={{
@@ -226,23 +200,53 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
         </button>
 
         {/* ─── Header ─── */}
-        <div style={{ padding: '28px 28px 14px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '28px 28px 16px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{
-            width: 46, height: 46, borderRadius: 14, margin: '0 auto 12px',
+            width: 48, height: 48, borderRadius: 14, margin: '0 auto 12px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #00f0ff, #8b5cf6)',
+            background: 'linear-gradient(135deg, #00f0ff, #3b82f6)',
             boxShadow: '0 4px 22px rgba(0,240,255,0.4)',
           }}>
-            <svg viewBox="0 0 24 24" fill="none" width="24" height="24" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" width="26" height="26" stroke="#020617" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
             </svg>
           </div>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {screen === 'onboarding' ? 'Academic Profile Setup' : screen === 'email-register' ? 'Create Student Account' : 'Sign In to Subjective Test AI'}
+            {screen === 'onboarding' ? 'Academic Profile Setup' : 'Supabase Authentication'}
           </h2>
           <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0', fontFamily: "'Inter', system-ui, sans-serif" }}>
-            {screen === 'onboarding' ? 'Setup your university details once to auto-fill AI exam builder' : 'Supabase Authentication Portal'}
+            {screen === 'onboarding' ? 'Setup your university details for AI exam generator' : 'Sign in or create account powered by Supabase'}
           </p>
+
+          {/* Login / Register Toggle Tabs */}
+          {screen !== 'onboarding' && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 18, backgroundColor: 'rgba(5, 9, 30, 0.8)', padding: 4, borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                type="button"
+                onClick={() => { setError(''); setScreen('login'); }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', border: 'none', transition: 'all 0.2s',
+                  backgroundColor: screen === 'login' ? '#00f0ff' : 'transparent',
+                  color: screen === 'login' ? '#020617' : '#94a3b8',
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setError(''); setScreen('register'); }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer', border: 'none', transition: 'all 0.2s',
+                  backgroundColor: screen === 'register' ? '#00f0ff' : 'transparent',
+                  color: screen === 'register' ? '#020617' : '#94a3b8',
+                }}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ─── Body ─── */}
@@ -251,7 +255,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
           {/* Error Banner */}
           {error && (
             <div style={{
-              marginBottom: 14, padding: '10px 14px', borderRadius: 10,
+              marginBottom: 16, padding: '10px 14px', borderRadius: 10,
               backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
               color: '#fca5a5', fontSize: 12, fontWeight: 600, fontFamily: "'Inter', system-ui, sans-serif",
               display: 'flex', alignItems: 'center', gap: 8,
@@ -261,8 +265,8 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
             </div>
           )}
 
-          {/* Loading / Redirecting */}
-          {(loading || redirecting) ? (
+          {/* Loading */}
+          {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: 14 }}>
               <div style={{
                 width: 36, height: 36, borderRadius: '50%',
@@ -270,73 +274,15 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 animation: 'spin 0.8s linear infinite',
               }} />
               <p style={{ fontSize: 13, color: '#00f0ff', fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif" }}>
-                {redirecting ? 'Redirecting to Google OAuth...' : 'Connecting to Supabase Authentication...'}
+                Connecting to Supabase...
               </p>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
 
-          ) : screen === 'main' ? (
-            /* ─── Main Screen ─── */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Google Button */}
-              <button
-                onClick={handleGoogleSignIn}
-                style={{
-                  width: '100%', height: 46, borderRadius: 12,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  backgroundColor: '#fff', color: '#0f172a', border: 'none',
-                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  boxShadow: '0 4px 15px rgba(255,255,255,0.15)',
-                  transition: 'transform 0.15s, background-color 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
-              >
-                <GoogleLogo />
-                Sign in with Google OAuth
-              </button>
-
-              {/* Divider */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '2px 0' }}>
-                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                <span style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif" }}>or</span>
-                <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              </div>
-
-              {/* Email Button */}
-              <button
-                onClick={() => { setError(''); setScreen('email-login'); }}
-                style={{
-                  width: '100%', height: 44, borderRadius: 12,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  backgroundColor: 'rgba(255,255,255,0.04)', color: '#e2e8f0',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,240,255,0.5)'; e.currentTarget.style.backgroundColor = 'rgba(0,240,255,0.08)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
-              >
-                ✉ Sign in with Email
-              </button>
-
-              {/* Register link */}
-              <div style={{ textAlign: 'center', paddingTop: 4 }}>
-                <button
-                  onClick={() => { setError(''); setScreen('email-register'); }}
-                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
-                >
-                  Don&apos;t have an account? <span style={{ textDecoration: 'underline' }}>Register now</span>
-                </button>
-              </div>
-            </div>
-
-          ) : screen === 'email-login' || screen === 'email-register' ? (
-            /* ─── Email Auth Form ─── */
+          ) : screen === 'login' || screen === 'register' ? (
+            /* ─── Direct Supabase Email/Password Form ─── */
             <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {screen === 'email-register' && (
+              {screen === 'register' && (
                 <div>
                   <label style={labelStyle}>Full Name</label>
                   <input
@@ -352,7 +298,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 <input
                   type="email" required value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="user@gmail.com"
+                  placeholder="name@example.com"
                   style={inputStyle}
                 />
               </div>
@@ -365,27 +311,9 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                   style={inputStyle}
                 />
               </div>
-              <button type="submit" style={{ ...primaryBtnStyle, marginTop: 4 }}>
-                {screen === 'email-register' ? 'Register Account' : 'Sign In'}
+              <button type="submit" style={{ ...primaryBtnStyle, marginTop: 6 }}>
+                {screen === 'register' ? 'Register Account' : 'Sign In with Supabase'}
               </button>
-              <div style={{ textAlign: 'center', paddingTop: 2 }}>
-                <button
-                  type="button"
-                  onClick={() => { setError(''); setScreen(screen === 'email-login' ? 'email-register' : 'email-login'); }}
-                  style={{ background: 'none', border: 'none', color: '#00f0ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
-                >
-                  {screen === 'email-login' ? 'Need an account? Register' : 'Already registered? Log in'}
-                </button>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => { setError(''); setScreen('main'); }}
-                  style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: "'Inter', system-ui, sans-serif" }}
-                >
-                  ← Back to main options
-                </button>
-              </div>
             </form>
 
           ) : (
@@ -397,7 +325,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({ isOpen, onClos
                 color: '#00f0ff', fontSize: 12, fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif",
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <span>✓</span> Verified Supabase Account
+                <span>✓</span> Authenticated via Supabase
               </div>
 
               <div>
