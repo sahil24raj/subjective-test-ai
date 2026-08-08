@@ -76,30 +76,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Current active logged in user state (strictly loaded via Supabase Session / Auth)
   const [user, setUser] = useState<User | null>(null);
 
-  // Multi-user directory state — Populated dynamically from Supabase Database
-  const [userDirectory, setUserDirectory] = useState<User[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('st_user_directory');
-        if (saved) {
-          const parsed: User[] = JSON.parse(saved);
-          return parsed.filter(u => u && u.email && !u.id?.startsWith('sch_') && !u.email.includes('mock'));
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+  // Multi-user directory state — Populated dynamically strictly from Supabase Database
+  const [userDirectory, setUserDirectory] = useState<User[]>([]);
 
   // Custom added friends list (by username)
-  const [customFriends, setCustomFriends] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('st_custom_friends');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
-  });
+  const [customFriends, setCustomFriends] = useState<string[]>([]);
 
   // User-scoped test history
   const [testHistory, setTestHistory] = useState<SavedTestResult[]>([]);
